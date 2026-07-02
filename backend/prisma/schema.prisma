@@ -1,0 +1,124 @@
+// Schema bersama 3 modul. Tandai kepemilikan: [SHARED][P2P-PEOPLE][P2P-PROJECT][TEAM-FORM]
+// Diisi mengikuti Conceptual Class Diagram TA (Gambar IV.16) + kebutuhan Affinity Engine (Bab IV.3).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// [SHARED] enum status
+enum StatusProject {
+  ACTIVE
+  CLOSED
+}
+
+enum StatusPendaftaran {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+// [SHARED]
+model Mahasiswa {
+  id        String   @id @default(cuid())
+  nama      String
+  email     String   @unique
+  password  String                 // hash bcrypt (UC01/UC02)
+  institusi String?
+  kontak    String?                 // ditampilkan ke pembuat saat diterima (UC11)
+  createdAt DateTime @default(now())
+
+  profil          Profil?
+  projectsCreated Project[]              @relation("ProjectPembuat")
+  pendaftaran     PendaftaranProject[]
+  affinityScores  AffinityScoreProject[]
+}
+
+// [SHARED] Profil kolaboratif — dasar Affinity Engine (UC04)
+model Profil {
+  id          String    @id @default(cuid())
+  mahasiswaId String    @unique
+  mahasiswa   Mahasiswa @relation(fields: [mahasiswaId], references: [id], onDelete: Cascade)
+
+  skill             String[] // tag multi-select
+  pengalaman        Int      // skala ordinal 1..3 (Pemula/Menengah/Mahir)
+  minatTag          String[] // tag multi-select
+  gayaKerja         String   // "Terstruktur" | "Fleksibel"
+  preferensiPeran   String   // "Leader/Coordinator" | "Contributor/Executor" | "Supporter/Facilitator"
+  ketersediaanWaktu String[] // slot waktu multi-select (hard constraint)
+  lengkap           Boolean  @default(false)
+}
+
+// [P2P-PROJECT]
+model Project {
+  id        String        @id @default(cuid())
+  judul     String
+  deskripsi String
+  kategori  String?
+  timeline  String?
+  jadwalSlot String[]     // slot waktu kegiatan (untuk hard constraint filtering)
+  // atribut sisi project untuk Affinity Engine (Algoritma 2)
+  pengalamanReq Int      @default(1) // 1..3
+  minatTag      String[]            // tag minat relevan kegiatan
+  gayaKerja     String?             // preferensi gaya kerja kegiatan
+  status    StatusProject @default(ACTIVE)
+  createdAt DateTime      @default(now())
+
+  pembuatId String
+  pembuat   Mahasiswa @relation("ProjectPembuat", fields: [pembuatId], references: [id])
+
+  roles          KebutuhanRole[]
+  pendaftaran    PendaftaranProject[]
+  affinityScores AffinityScoreProject[]
+}
+
+// [P2P-PROJECT] role + kuota per project
+model KebutuhanRole {
+  id          String   @id @default(cuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  namaRole    String   // taksonomi generik: Leader/Coordinator, Contributor/Executor, Supporter/Facilitator
+  skillDicari String[]
+  kuota       Int
+  sisaKuota   Int
+
+  pendaftaran PendaftaranProject[]
+}
+
+// [P2P-PROJECT]
+model PendaftaranProject {
+  id          String            @id @default(cuid())
+  mahasiswaId String
+  projectId   String
+  roleId      String
+  status      StatusPendaftaran @default(PENDING)
+  tanggal     DateTime          @default(now())
+
+  mahasiswa Mahasiswa     @relation(fields: [mahasiswaId], references: [id])
+  project   Project       @relation(fields: [projectId], references: [id])
+  role      KebutuhanRole @relation(fields: [roleId], references: [id])
+
+  @@unique([mahasiswaId, projectId])
+}
+
+// [P2P-PROJECT] hasil perhitungan Affinity Engine (UC05) — sumber feed (UC06)
+model AffinityScoreProject {
+  id          String   @id @default(cuid())
+  mahasiswaId String
+  projectId   String
+  nilaiTotal  Float    // 0..1
+  detail      Json     // breakdown kontribusi per atribut
+  timestamp   DateTime @default(now())
+
+  mahasiswa Mahasiswa @relation(fields: [mahasiswaId], references: [id])
+  project   Project   @relation(fields: [projectId], references: [id])
+
+  @@unique([mahasiswaId, projectId])
+}
+
+// [P2P-PEOPLE] TODO Ahmad — model dari ERD
+// [TEAM-FORM]  TODO Faishal — model dari ERD
