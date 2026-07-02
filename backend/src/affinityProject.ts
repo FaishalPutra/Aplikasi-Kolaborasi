@@ -1,5 +1,7 @@
-// [SHARED] Affinity Engine — Affinity Based Matching (TA Bab IV.3).
-// Pure functions, deterministik. Dipakai bersama oleh modul (lihat Deployment Diagram).
+// [P2P-PROJECT] Affinity Engine orang-ke-proyek (TA Faishal Putra, Bab IV.3).
+// Beda rumus & bobot dari affinityPeople.ts (People-to-People, TA Ahmad) —
+// setiap modul punya mesin sendiri sesuai dokumen TA masing-masing.
+// Pure functions, deterministik.
 
 // Bobot internal (Rank Order Centroid, Bab IV.3.2)
 export const W = {

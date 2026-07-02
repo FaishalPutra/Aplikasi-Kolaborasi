@@ -13,31 +13,41 @@ class CollabApp extends StatefulWidget {
 }
 
 class _CollabAppState extends State<CollabApp> {
-  bool _login = false;
+  // Navigasi ke HomeShell dilakukan langsung via Navigator (bukan lewat setState
+  // yang mengganti `home`), karena mengganti `home` tidak memengaruhi halaman
+  // yang sudah ditumpuk oleh Navigator.push (Login/Register).
+  void _masukKeApp(BuildContext context) {
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const HomeShell()),
+      (route) => false,
+    );
+  }
 
   @override
   Widget build(BuildContext context) => MaterialApp(
-        title: 'Collab Platform',
+        title: 'Aplikasi Kolaborasi',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           useMaterial3: true,
-          colorSchemeSeed: const Color(0xFF4F46E5), // indigo
+          fontFamily: 'Roboto',
+          scaffoldBackgroundColor: const Color(0xFFF4F6FB),
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color(0xFF2563EB),
+            primary: const Color(0xFF2563EB),
+          ),
           cardTheme: const CardThemeData(
             elevation: 0,
+            color: Colors.white,
             margin: EdgeInsets.symmetric(horizontal: 14, vertical: 6),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.all(Radius.circular(16)),
-              side: BorderSide(color: Color(0x14000000)),
+              borderRadius: BorderRadius.all(Radius.circular(18)),
+              side: BorderSide(color: Color(0x11000000)),
             ),
           ),
-          inputDecorationTheme: const InputDecorationTheme(
-            border: OutlineInputBorder(),
-            filled: true,
-          ),
         ),
-        home: _login
-            ? const HomeShell()
-            : AuthPage(onLogin: () => setState(() => _login = true)),
+        home: Builder(
+          builder: (context) => WelcomePage(onLoggedIn: () => _masukKeApp(context)),
+        ),
       );
 }
 
@@ -54,6 +64,7 @@ class _HomeShellState extends State<HomeShell> {
     PeopleToPeoplePage(),
     PeopleToProjectPage(),
     TeamFormationPage(),
+    _ProfilPlaceholder(),
   ];
 
   @override
@@ -63,10 +74,20 @@ class _HomeShellState extends State<HomeShell> {
           selectedIndex: _index,
           onDestinationSelected: (i) => setState(() => _index = i),
           destinations: const [
-            NavigationDestination(icon: Icon(Icons.people), label: 'People'),
-            NavigationDestination(icon: Icon(Icons.work), label: 'Project'),
-            NavigationDestination(icon: Icon(Icons.groups), label: 'Team'),
+            NavigationDestination(icon: Icon(Icons.people_outline), selectedIcon: Icon(Icons.people), label: 'Orang'),
+            NavigationDestination(icon: Icon(Icons.work_outline), selectedIcon: Icon(Icons.work), label: 'Proyek'),
+            NavigationDestination(icon: Icon(Icons.groups_outlined), selectedIcon: Icon(Icons.groups), label: 'Tim'),
+            NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Profil'),
           ],
         ),
+      );
+}
+
+// Placeholder tab Profil — layar lengkap (mockup ke-4) menyusul.
+class _ProfilPlaceholder extends StatelessWidget {
+  const _ProfilPlaceholder();
+  @override
+  Widget build(BuildContext context) => const Scaffold(
+        body: Center(child: Text('Profil — segera hadir')),
       );
 }

@@ -8,7 +8,7 @@ import {
   FEED_THRESHOLD,
   ProfilMhs,
   ProjectInput,
-} from '../affinity';
+} from '../affinityProject';
 
 // Modul People-to-Project (Faishal). UC05–UC11.
 const router = Router();
@@ -74,6 +74,8 @@ router.post('/projects', wajibLogin, async (req: AuthedRequest, res) => {
     deskripsi,
     kategori,
     timeline,
+    durasi,
+    format,
     jadwalSlot,
     pengalamanReq,
     minatTag,
@@ -96,6 +98,8 @@ router.post('/projects', wajibLogin, async (req: AuthedRequest, res) => {
       deskripsi,
       kategori: kategori ?? null,
       timeline: timeline ?? null,
+      durasi: durasi ?? null,
+      format: format ?? null,
       jadwalSlot: Array.isArray(jadwalSlot) ? jadwalSlot : [],
       pengalamanReq: typeof pengalamanReq === 'number' ? pengalamanReq : 1,
       minatTag: Array.isArray(minatTag) ? minatTag : [],
@@ -125,6 +129,13 @@ router.get('/feed', wajibLogin, async (req: AuthedRequest, res) => {
   const projects = await ambilProjectAktif();
   const feed: any[] = [];
 
+  // project yang sudah didaftari mahasiswa ini → jangan tampilkan lagi di rekomendasi
+  const sudahDaftar = await prisma.pendaftaranProject.findMany({
+    where: { mahasiswaId: req.mahasiswaId! },
+    select: { projectId: true },
+  });
+  const daftarSet = new Set(sudahDaftar.map((d) => d.projectId));
+
   for (const p of projects) {
     if (p.pembuatId === req.mahasiswaId) continue; // jangan rekomendasikan project sendiri
     const input = toProjectInput(p);
@@ -132,7 +143,7 @@ router.get('/feed', wajibLogin, async (req: AuthedRequest, res) => {
 
     const hasil = hitungAffinity(profil, input);
 
-    // UC05 simpan skor (upsert agar idempoten)
+    // UC05 simpan skor (upsert agar idempoten) — tetap dihitung walau sudah terdaftar
     await prisma.affinityScoreProject.upsert({
       where: { mahasiswaId_projectId: { mahasiswaId: req.mahasiswaId!, projectId: p.id } },
       create: {
@@ -144,11 +155,18 @@ router.get('/feed', wajibLogin, async (req: AuthedRequest, res) => {
       update: { nilaiTotal: hasil.affinityScore, detail: hasil.breakdown as any, timestamp: new Date() },
     });
 
+    if (daftarSet.has(p.id)) continue; // sudah terdaftar → keluar dari feed rekomendasi
+
+    const slotTerbuka = p.roles.reduce((s, r) => s + r.sisaKuota, 0);
+    if (slotTerbuka <= 0) continue; // kuota penuh → keluar dari feed rekomendasi
+
     if (hasil.affinityScore >= FEED_THRESHOLD) {
       feed.push({
         projectId: p.id,
         judul: p.judul,
         kategori: p.kategori,
+        timeline: p.timeline,
+        slotTerbuka,
         skorPersen: Math.round(hasil.affinityScore * 1000) / 10,
         badge: badge(hasil.affinityScore),
       });
@@ -163,7 +181,7 @@ router.get('/feed', wajibLogin, async (req: AuthedRequest, res) => {
 router.get('/projects/:id', wajibLogin, async (req: AuthedRequest, res) => {
   const project = await prisma.project.findUnique({
     where: { id: req.params.id },
-    include: { roles: true },
+    include: { roles: true, pembuat: { select: { nama: true, kontak: true, email: true } } },
   });
   if (!project) return res.status(404).json({ error: 'Project tidak ditemukan' });
 
@@ -179,7 +197,29 @@ router.get('/projects/:id', wajibLogin, async (req: AuthedRequest, res) => {
   }
 
   const kuotaPenuh = project.roles.every((r) => r.sisaKuota <= 0);
-  return res.json({ ...project, affinity, kuotaPenuh });
+
+  // status pendaftaran si pemanggil (untuk tombol "Daftar" vs "Terdaftar · <role>")
+  const pendaftaranSaya = await prisma.pendaftaranProject.findUnique({
+    where: { mahasiswaId_projectId: { mahasiswaId: req.mahasiswaId!, projectId: req.params.id } },
+    include: { role: true },
+  });
+
+  // Kontak pembuat dibuka ke pendaftar hanya jika sudah DITERIMA (mutual, seperti sisi sebaliknya).
+  const { pembuat, ...projectData } = project;
+  const diterima = pendaftaranSaya?.status === 'ACCEPTED';
+
+  return res.json({
+    ...projectData,
+    affinity,
+    kuotaPenuh,
+    sudahDaftar: !!pendaftaranSaya,
+    pendaftaranIdSaya: pendaftaranSaya?.id ?? null,
+    roleSaya: pendaftaranSaya?.role.namaRole ?? null,
+    statusSaya: pendaftaranSaya?.status ?? null,
+    milikSaya: project.pembuatId === req.mahasiswaId,
+    namaPembuat: pembuat.nama,
+    kontakPembuat: diterima ? (pembuat.kontak ?? pembuat.email) : null,
+  });
 });
 
 // UC08 Mendaftar ke role di kegiatan
@@ -207,6 +247,96 @@ router.post('/projects/:id/daftar', wajibLogin, async (req: AuthedRequest, res) 
     },
   });
   return res.status(201).json(pendaftaran);
+});
+
+// Batalkan pendaftaran (oleh mahasiswa yang mendaftar). Jika sudah ACCEPTED,
+// kuota role dikembalikan karena slot yang terpakai jadi bebas lagi.
+router.delete('/pendaftaran/:id', wajibLogin, async (req: AuthedRequest, res) => {
+  const pendaftaran = await prisma.pendaftaranProject.findUnique({ where: { id: req.params.id } });
+  if (!pendaftaran) return res.status(404).json({ error: 'Pendaftaran tidak ditemukan' });
+  if (pendaftaran.mahasiswaId !== req.mahasiswaId) {
+    return res.status(403).json({ error: 'Bukan pendaftaran Anda' });
+  }
+
+  if (pendaftaran.status === 'ACCEPTED') {
+    await prisma.$transaction([
+      prisma.pendaftaranProject.delete({ where: { id: pendaftaran.id } }),
+      prisma.kebutuhanRole.update({
+        where: { id: pendaftaran.roleId },
+        data: { sisaKuota: { increment: 1 } },
+      }),
+    ]);
+  } else {
+    await prisma.pendaftaranProject.delete({ where: { id: pendaftaran.id } });
+  }
+  return res.json({ ok: true });
+});
+
+// Tab "Terdaftar" — daftar project yang si mahasiswa daftar (semua status)
+router.get('/terdaftar', wajibLogin, async (req: AuthedRequest, res) => {
+  const rows = await prisma.pendaftaranProject.findMany({
+    where: { mahasiswaId: req.mahasiswaId! },
+    include: {
+      project: { include: { pembuat: { select: { nama: true, kontak: true, email: true } } } },
+      role: true,
+    },
+    orderBy: { tanggal: 'desc' },
+  });
+  return res.json(
+    rows.map((r) => ({
+      pendaftaranId: r.id,
+      projectId: r.projectId,
+      judul: r.project.judul,
+      kategori: r.project.kategori,
+      role: r.role.namaRole,
+      status: r.status,
+      namaPembuat: r.project.pembuat.nama,
+      // kontak hanya dibuka setelah diterima, sama seperti detail proyek
+      kontakPembuat:
+        r.status === 'ACCEPTED' ? r.project.pembuat.kontak ?? r.project.pembuat.email : null,
+    })),
+  );
+});
+
+// Tab "Proyek Saya" — project yang dibuat si mahasiswa + ringkasan pendaftar/kuota
+router.get('/saya', wajibLogin, async (req: AuthedRequest, res) => {
+  const projects = await prisma.project.findMany({
+    where: { pembuatId: req.mahasiswaId! },
+    include: { roles: true, pendaftaran: true },
+    orderBy: { createdAt: 'desc' },
+  });
+  return res.json(
+    projects.map((p) => {
+      const totalKuota = p.roles.reduce((s, r) => s + r.kuota, 0);
+      const sisaKuota = p.roles.reduce((s, r) => s + r.sisaKuota, 0);
+      return {
+        projectId: p.id,
+        judul: p.judul,
+        kategori: p.kategori,
+        totalPendaftar: p.pendaftaran.length,
+        pendingBaru: p.pendaftaran.filter((x) => x.status === 'PENDING').length,
+        terisi: totalKuota - sisaKuota,
+        totalKuota,
+      };
+    }),
+  );
+});
+
+// Hapus proyek (hanya pembuat). Menghapus juga pendaftaran & skor affinity terkait,
+// karena relasi itu tidak cascade otomatis (KebutuhanRole tetap cascade lewat schema).
+router.delete('/projects/:id', wajibLogin, async (req: AuthedRequest, res) => {
+  const project = await prisma.project.findUnique({ where: { id: req.params.id } });
+  if (!project) return res.status(404).json({ error: 'Project tidak ditemukan' });
+  if (project.pembuatId !== req.mahasiswaId) {
+    return res.status(403).json({ error: 'Hanya pembuat kegiatan yang dapat menghapus' });
+  }
+
+  await prisma.$transaction([
+    prisma.affinityScoreProject.deleteMany({ where: { projectId: req.params.id } }),
+    prisma.pendaftaranProject.deleteMany({ where: { projectId: req.params.id } }),
+    prisma.project.delete({ where: { id: req.params.id } }), // cascade ke KebutuhanRole
+  ]);
+  return res.json({ ok: true });
 });
 
 // UC10 List pendaftar (hanya pembuat kegiatan)

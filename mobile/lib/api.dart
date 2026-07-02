@@ -36,3 +36,8 @@ Future<dynamic> apiPatch(String path, Map<String, dynamic> body) async {
   );
   return jsonDecode(res.body);
 }
+
+Future<dynamic> apiDelete(String path) async {
+  final res = await http.delete(Uri.parse('$baseUrl$path'), headers: _headers());
+  return jsonDecode(res.body);
+}

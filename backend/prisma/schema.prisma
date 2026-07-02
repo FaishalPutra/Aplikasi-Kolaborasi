@@ -51,6 +51,7 @@ model Profil {
   preferensiPeran   String   // "Leader/Coordinator" | "Contributor/Executor" | "Supporter/Facilitator"
   ketersediaanWaktu String[] // slot waktu multi-select (hard constraint)
   lengkap           Boolean  @default(false)
+  visibilitas       Boolean  @default(true) // [P2P-PEOPLE] muncul di feed orang lain (UC05)
 }
 
 // [P2P-PROJECT]
@@ -59,7 +60,9 @@ model Project {
   judul     String
   deskripsi String
   kategori  String?
-  timeline  String?
+  timeline  String?              // "Tenggat", mis. "5 hari lagi"
+  durasi    String?              // mis. "3 bulan"
+  format    String?              // "Online" | "Hybrid" | "Onsite"
   jadwalSlot String[]     // slot waktu kegiatan (untuk hard constraint filtering)
   // atribut sisi project untuk Affinity Engine (Algoritma 2)
   pengalamanReq Int      @default(1) // 1..3
@@ -120,5 +123,58 @@ model AffinityScoreProject {
   @@unique([mahasiswaId, projectId])
 }
 
-// [P2P-PEOPLE] TODO Ahmad — model dari ERD
+// [P2P-PEOPLE] Skor affinity orang-ke-orang (Gambar IV.17). FK plain string (tanpa relasi navigasi).
+model AffinityScorePeople {
+  id           String   @id @default(cuid())
+  mahasiswaAId String
+  mahasiswaBId String
+  nilaiTotal   Float
+  detail       Json
+  timestamp    DateTime @default(now())
+
+  @@unique([mahasiswaAId, mahasiswaBId])
+}
+
+// [P2P-PEOPLE] UC09 — simpan profil calon partner
+model SavedProfile {
+  id       String   @id @default(cuid())
+  ownerId  String   // yang menyimpan
+  targetId String   // profil yang disimpan
+  savedAt  DateTime @default(now())
+
+  @@unique([ownerId, targetId])
+}
+
+// [P2P-PEOPLE] UC10 — express interest
+model ExpressInterest {
+  id         String   @id @default(cuid())
+  senderId   String
+  receiverId String
+  createdAt  DateTime @default(now())
+
+  @@unique([senderId, receiverId])
+}
+
+// [P2P-PEOPLE] UC11 — connect request
+model ConnectRequest {
+  id         String            @id @default(cuid())
+  senderId   String
+  receiverId String
+  status     StatusPendaftaran @default(PENDING)
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  @@unique([senderId, receiverId])
+}
+
+// [P2P-PEOPLE] UC12 — koneksi mutual. Pasangan dinormalisasi (A<B) agar unik.
+model Connection {
+  id           String   @id @default(cuid())
+  mahasiswaAId String
+  mahasiswaBId String
+  connectedAt  DateTime @default(now())
+
+  @@unique([mahasiswaAId, mahasiswaBId])
+}
+
 // [TEAM-FORM]  TODO Faishal — model dari ERD
