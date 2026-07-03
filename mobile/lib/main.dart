@@ -1,10 +1,31 @@
 import 'package:flutter/material.dart';
+import 'api.dart';
 import 'modules/auth.dart';
 import 'modules/people_to_people.dart';
 import 'modules/people_to_project.dart';
+import 'modules/profil.dart';
 import 'modules/team_formation.dart';
 
 void main() => runApp(const CollabApp());
+
+// Navigasi ke HomeShell dilakukan langsung via Navigator (bukan lewat setState
+// yang mengganti `home`), karena mengganti `home` tidak memengaruhi halaman
+// yang sudah ditumpuk oleh Navigator.push (Login/Register).
+void masukKeApp(BuildContext context) {
+  Navigator.of(context).pushAndRemoveUntil(
+    MaterialPageRoute(builder: (_) => const HomeShell()),
+    (route) => false,
+  );
+}
+
+// Dipanggil dari tab Profil saat pengguna menekan "Keluar".
+void keluarDariApp(BuildContext context) {
+  authToken = null;
+  Navigator.of(context).pushAndRemoveUntil(
+    MaterialPageRoute(builder: (ctx) => WelcomePage(onLoggedIn: () => masukKeApp(ctx))),
+    (route) => false,
+  );
+}
 
 class CollabApp extends StatefulWidget {
   const CollabApp({super.key});
@@ -13,16 +34,6 @@ class CollabApp extends StatefulWidget {
 }
 
 class _CollabAppState extends State<CollabApp> {
-  // Navigasi ke HomeShell dilakukan langsung via Navigator (bukan lewat setState
-  // yang mengganti `home`), karena mengganti `home` tidak memengaruhi halaman
-  // yang sudah ditumpuk oleh Navigator.push (Login/Register).
-  void _masukKeApp(BuildContext context) {
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const HomeShell()),
-      (route) => false,
-    );
-  }
-
   @override
   Widget build(BuildContext context) => MaterialApp(
         title: 'Aplikasi Kolaborasi',
@@ -46,7 +57,7 @@ class _CollabAppState extends State<CollabApp> {
           ),
         ),
         home: Builder(
-          builder: (context) => WelcomePage(onLoggedIn: () => _masukKeApp(context)),
+          builder: (context) => WelcomePage(onLoggedIn: () => masukKeApp(context)),
         ),
       );
 }
@@ -64,7 +75,7 @@ class _HomeShellState extends State<HomeShell> {
     PeopleToPeoplePage(),
     PeopleToProjectPage(),
     TeamFormationPage(),
-    _ProfilPlaceholder(),
+    ProfilPage(),
   ];
 
   @override
@@ -80,14 +91,5 @@ class _HomeShellState extends State<HomeShell> {
             NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Profil'),
           ],
         ),
-      );
-}
-
-// Placeholder tab Profil — layar lengkap (mockup ke-4) menyusul.
-class _ProfilPlaceholder extends StatelessWidget {
-  const _ProfilPlaceholder();
-  @override
-  Widget build(BuildContext context) => const Scaffold(
-        body: Center(child: Text('Profil — segera hadir')),
       );
 }

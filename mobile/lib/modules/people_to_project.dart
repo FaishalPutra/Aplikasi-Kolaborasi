@@ -56,6 +56,19 @@ IconData _kategoriIcon(String? k) {
   }
 }
 
+IconData _ikonKontak(String? jenis) {
+  switch (jenis) {
+    case 'WHATSAPP':
+      return Icons.phone;
+    case 'LINE':
+      return Icons.chat_bubble_outline;
+    case 'LINKEDIN':
+      return Icons.work_outline;
+    default:
+      return Icons.email_outlined;
+  }
+}
+
 Widget _ikonKotak(String? kategori, {double size = 52}) => Container(
       width: size,
       height: size,
@@ -384,11 +397,11 @@ class _TerdaftarTabState extends State<_TerdaftarTab> {
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(color: const Color(0xFFDCFCE7), borderRadius: BorderRadius.circular(10)),
                 child: Row(children: [
-                  const Icon(Icons.contact_phone, size: 18, color: _hijau),
+                  Icon(_ikonKontak(r['kontakJenisPembuat']?.toString()), size: 18, color: _hijau),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text('KONTAK PEMBUAT · ${r['namaPembuat'] ?? ''}',
+                      Text('KONTAK PEMBUAT · ${r['namaPembuat'] ?? ''} · ${r['kontakJenisPembuat'] ?? 'EMAIL'}',
                           style: const TextStyle(color: _hijau, fontSize: 10, fontWeight: FontWeight.bold)),
                       Text(kontak!, style: const TextStyle(fontWeight: FontWeight.bold, color: _navy, fontSize: 13)),
                     ]),
@@ -680,11 +693,11 @@ class _DetailProjectPageState extends State<DetailProjectPage> {
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(color: const Color(0xFFDCFCE7), borderRadius: BorderRadius.circular(14)),
             child: Row(children: [
-              const Icon(Icons.contact_phone, color: _hijau),
+              Icon(_ikonKontak(p['kontakJenisPembuat']?.toString()), color: _hijau),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('KONTAK PEMBUAT · ${p['namaPembuat'] ?? ''}',
+                  Text('KONTAK PEMBUAT · ${p['namaPembuat'] ?? ''} · ${p['kontakJenisPembuat'] ?? 'EMAIL'}',
                       style: const TextStyle(color: _hijau, fontSize: 11, fontWeight: FontWeight.bold)),
                   Text(p['kontakPembuat'].toString(),
                       style: const TextStyle(fontWeight: FontWeight.bold, color: _navy, fontSize: 15)),
@@ -913,7 +926,7 @@ class _KelolaProjectPageState extends State<KelolaProjectPage> {
     final res = await apiPatch('/people-to-project/pendaftaran/$pendaftaranId', {'keputusan': keputusan});
     if (!mounted) return;
     if (res is Map && res['kontak'] != null) {
-      _snack(context, 'Diterima. Kontak: ${res['kontak']}');
+      _snack(context, 'Diterima. Kontak (${res['kontakJenis'] ?? 'EMAIL'}): ${res['kontak']}');
     } else if (res is Map && res['error'] != null) {
       _snack(context, res['error'].toString());
     } else {

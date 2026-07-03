@@ -28,6 +28,15 @@ Future<dynamic> apiPost(String path, Map<String, dynamic> body) async {
   return jsonDecode(res.body);
 }
 
+Future<dynamic> apiPut(String path, Map<String, dynamic> body) async {
+  final res = await http.put(
+    Uri.parse('$baseUrl$path'),
+    headers: _headers(),
+    body: jsonEncode(body),
+  );
+  return jsonDecode(res.body);
+}
+
 Future<dynamic> apiPatch(String path, Map<String, dynamic> body) async {
   final res = await http.patch(
     Uri.parse('$baseUrl$path'),

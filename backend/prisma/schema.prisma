@@ -29,7 +29,8 @@ model Mahasiswa {
   email     String   @unique
   password  String                 // hash bcrypt (UC01/UC02)
   institusi String?
-  kontak    String?                 // ditampilkan ke pembuat saat diterima (UC11)
+  kontak      String?               // ditampilkan ke pembuat saat diterima (UC11)
+  kontakJenis String?               // "WHATSAPP" | "LINE" | "LINKEDIN" (platform kontak utama)
   createdAt DateTime @default(now())
 
   profil          Profil?

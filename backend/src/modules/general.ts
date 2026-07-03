@@ -46,6 +46,45 @@ router.get('/profil', wajibLogin, async (req: AuthedRequest, res) => {
   return res.json(profil);
 });
 
+// Lihat data akun + profil kolaboratif sekaligus (untuk tab Profil)
+router.get('/me', wajibLogin, async (req: AuthedRequest, res) => {
+  const mhs = await prisma.mahasiswa.findUnique({ where: { id: req.mahasiswaId! } });
+  if (!mhs) return res.status(404).json({ error: 'Akun tidak ditemukan' });
+  const profil = await prisma.profil.findUnique({ where: { mahasiswaId: req.mahasiswaId! } });
+  return res.json({
+    id: mhs.id,
+    nama: mhs.nama,
+    email: mhs.email,
+    institusi: mhs.institusi,
+    kontak: mhs.kontak,
+    kontakJenis: mhs.kontakJenis,
+    profil,
+  });
+});
+
+// Ubah data akun dasar (nama + kontak)
+router.put('/akun', wajibLogin, async (req: AuthedRequest, res) => {
+  const { nama, institusi, kontak, kontakJenis } = req.body ?? {};
+  if (!nama || !nama.trim()) return res.status(400).json({ error: 'Nama wajib diisi' });
+
+  const mhs = await prisma.mahasiswa.update({
+    where: { id: req.mahasiswaId! },
+    data: {
+      nama: nama.trim(),
+      institusi: institusi ?? null,
+      kontak: kontak ?? null,
+      kontakJenis: kontakJenis ?? null,
+    },
+  });
+  return res.json({
+    id: mhs.id,
+    nama: mhs.nama,
+    institusi: mhs.institusi,
+    kontak: mhs.kontak,
+    kontakJenis: mhs.kontakJenis,
+  });
+});
+
 // UC04 Buat / perbarui profil kolaboratif (upsert)
 router.put('/profil', wajibLogin, async (req: AuthedRequest, res) => {
   const { skill, pengalaman, minatTag, gayaKerja, preferensiPeran, ketersediaanWaktu } =

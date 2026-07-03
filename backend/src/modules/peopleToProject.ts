@@ -181,7 +181,7 @@ router.get('/feed', wajibLogin, async (req: AuthedRequest, res) => {
 router.get('/projects/:id', wajibLogin, async (req: AuthedRequest, res) => {
   const project = await prisma.project.findUnique({
     where: { id: req.params.id },
-    include: { roles: true, pembuat: { select: { nama: true, kontak: true, email: true } } },
+    include: { roles: true, pembuat: { select: { nama: true, kontak: true, kontakJenis: true, email: true } } },
   });
   if (!project) return res.status(404).json({ error: 'Project tidak ditemukan' });
 
@@ -219,6 +219,7 @@ router.get('/projects/:id', wajibLogin, async (req: AuthedRequest, res) => {
     milikSaya: project.pembuatId === req.mahasiswaId,
     namaPembuat: pembuat.nama,
     kontakPembuat: diterima ? (pembuat.kontak ?? pembuat.email) : null,
+    kontakJenisPembuat: diterima ? (pembuat.kontak ? pembuat.kontakJenis ?? 'EMAIL' : 'EMAIL') : null,
   });
 });
 
@@ -277,7 +278,7 @@ router.get('/terdaftar', wajibLogin, async (req: AuthedRequest, res) => {
   const rows = await prisma.pendaftaranProject.findMany({
     where: { mahasiswaId: req.mahasiswaId! },
     include: {
-      project: { include: { pembuat: { select: { nama: true, kontak: true, email: true } } } },
+      project: { include: { pembuat: { select: { nama: true, kontak: true, kontakJenis: true, email: true } } } },
       role: true,
     },
     orderBy: { tanggal: 'desc' },
@@ -294,6 +295,8 @@ router.get('/terdaftar', wajibLogin, async (req: AuthedRequest, res) => {
       // kontak hanya dibuka setelah diterima, sama seperti detail proyek
       kontakPembuat:
         r.status === 'ACCEPTED' ? r.project.pembuat.kontak ?? r.project.pembuat.email : null,
+      kontakJenisPembuat:
+        r.status === 'ACCEPTED' ? (r.project.pembuat.kontak ? r.project.pembuat.kontakJenis ?? 'EMAIL' : 'EMAIL') : null,
     })),
   );
 });
@@ -341,7 +344,7 @@ router.delete('/projects/:id', wajibLogin, async (req: AuthedRequest, res) => {
 
 // UC10 List pendaftar (hanya pembuat kegiatan)
 router.get('/projects/:id/pendaftar', wajibLogin, async (req: AuthedRequest, res) => {
-  const project = await prisma.project.findUnique({ where: { id: req.params.id } });
+  const project = await prisma.project.findUnique({ where: { id: req.params.id }, include: { roles: true } });
   if (!project) return res.status(404).json({ error: 'Project tidak ditemukan' });
   if (project.pembuatId !== req.mahasiswaId) {
     return res.status(403).json({ error: 'Hanya pembuat kegiatan yang dapat melihat pendaftar' });
@@ -352,23 +355,22 @@ router.get('/projects/:id/pendaftar', wajibLogin, async (req: AuthedRequest, res
     include: { mahasiswa: { select: { id: true, nama: true, email: true } }, role: true },
   });
 
-  // Lampirkan skor kecocokan tiap pendaftar (jika sudah dihitung)
-  const skor = await prisma.affinityScoreProject.findMany({
-    where: { projectId: req.params.id },
-  });
-  const skorMap = new Map(skor.map((s) => [s.mahasiswaId, s.nilaiTotal]));
-
-  return res.json(
-    pendaftar.map((p) => ({
+  // Skor dihitung ulang live (bukan baca dari cache AffinityScoreProject) agar selalu
+  // mencerminkan profil pendaftar TERKINI, walau mereka edit profil setelah mendaftar.
+  const projectInput = toProjectInput(project);
+  const out = [];
+  for (const p of pendaftar) {
+    const profil = await ambilProfil(p.mahasiswaId);
+    const skorPersen = profil ? Math.round(hitungAffinity(profil, projectInput).affinityScore * 1000) / 10 : null;
+    out.push({
       pendaftaranId: p.id,
       mahasiswa: p.mahasiswa,
       role: p.role.namaRole,
       status: p.status,
-      skorPersen: skorMap.has(p.mahasiswaId)
-        ? Math.round((skorMap.get(p.mahasiswaId) as number) * 1000) / 10
-        : null,
-    })),
-  );
+      skorPersen,
+    });
+  }
+  return res.json(out);
 });
 
 // UC11 Memproses pendaftaran (terima/tolak) — hanya pembuat kegiatan
@@ -408,6 +410,7 @@ router.patch('/pendaftaran/:id', wajibLogin, async (req: AuthedRequest, res) => 
     return res.json({
       status: 'ACCEPTED',
       kontak: pendaftaran.mahasiswa.kontak ?? pendaftaran.mahasiswa.email, // kontak ditampilkan saat diterima
+      kontakJenis: pendaftaran.mahasiswa.kontak ? pendaftaran.mahasiswa.kontakJenis ?? 'EMAIL' : 'EMAIL',
     });
   }
 
