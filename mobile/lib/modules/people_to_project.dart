@@ -244,8 +244,14 @@ class _RekomendasiTabState extends State<_RekomendasiTab> with AutomaticKeepAliv
         const SizedBox(height: 12),
         if (_feed.isEmpty)
           Padding(
-            padding: const EdgeInsets.only(top: 80),
-            child: Center(child: Text(_pesan ?? 'Belum ada rekomendasi.', textAlign: TextAlign.center)),
+            padding: const EdgeInsets.only(top: 40),
+            child: _EmptyState(
+              icon: Icons.auto_awesome,
+              judul: _pesan ?? 'Belum ada rekomendasi',
+              subtitle: 'Lengkapi profilmu atau tunggu proyek baru muncul sesuai kecocokanmu.',
+              tombol: 'Muat ulang',
+              onTombol: _muat,
+            ),
           )
         else
           ..._feed.map((e) => _kartuFeed(e as Map)),
@@ -348,9 +354,15 @@ class _TerdaftarTabState extends State<_TerdaftarTab> {
         const Text('Proyek terdaftar', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: _navy)),
         const SizedBox(height: 12),
         if (_rows.isEmpty)
-          const Padding(
-            padding: EdgeInsets.only(top: 80),
-            child: Center(child: Text('Belum mendaftar ke proyek mana pun.')),
+          Padding(
+            padding: const EdgeInsets.only(top: 40),
+            child: _EmptyState(
+              icon: Icons.assignment_outlined,
+              judul: 'Belum mendaftar ke proyek mana pun',
+              subtitle: 'Daftar dari tab Rekomendasi untuk mulai mengikuti kegiatan.',
+              tombol: 'Muat ulang',
+              onTombol: _muat,
+            ),
           )
         else
           ..._rows.map((e) => _kartu(e as Map)),
@@ -471,9 +483,18 @@ class _ProyekSayaTabState extends State<_ProyekSayaTab> {
         ]),
         const SizedBox(height: 12),
         if (_rows.isEmpty)
-          const Padding(
-            padding: EdgeInsets.only(top: 80),
-            child: Center(child: Text('Belum membuat proyek. Tekan "Buat" untuk mulai.')),
+          Padding(
+            padding: const EdgeInsets.only(top: 40),
+            child: _EmptyState(
+              icon: Icons.add_circle_outline,
+              judul: 'Belum membuat proyek',
+              subtitle: 'Buat kegiatan kolaboratif pertamamu dan temukan mahasiswa yang cocok.',
+              tombol: 'Buat proyek',
+              onTombol: () async {
+                await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const BuatProjectPage()));
+                _muat();
+              },
+            ),
           )
         else
           ..._rows.map((e) => _kartu(e as Map)),
@@ -1147,7 +1168,7 @@ class _BuatProjectPageState extends State<BuatProjectPage> {
   final _judul = TextEditingController();
   final _deskripsi = TextEditingController();
   String? _kategori;
-  final Set<String> _peran = {};
+  final Map<String, int> _peran = {}; // namaRole -> kuota (jumlah orang dibutuhkan)
   final Set<String> _skill = {};
   // 6 atribut yang dipakai Affinity Engine (sama seperti profil mahasiswa).
   final Set<String> _minat = {};
@@ -1157,10 +1178,9 @@ class _BuatProjectPageState extends State<BuatProjectPage> {
   bool _loading = false;
 
   final _kategoriOpsi = const ['Riset', 'Desain', 'Kewirausahaan', 'Kompetisi', 'KKN', 'Lainnya'];
-  final _peranOpsi = const [
-    'Ketua / PM', 'Mobile Dev', 'Web Dev', 'Backend Dev', 'UI/UX Designer',
-    'Data Analyst', 'Peneliti', 'Content / Copywriter', 'Dokumentasi', 'Marketing',
-  ];
+  // Taksonomi generik — HARUS sama persis dengan preferensiPeran profil mahasiswa,
+  // karena Affinity Engine mencocokkan string-nya langsung (lihat affinityProject.ts).
+  final _peranOpsi = const ['Leader/Coordinator', 'Contributor/Executor', 'Supporter/Facilitator'];
   final _skillOpsi = const [
     'Python', 'JavaScript', 'Figma', 'Flutter', 'Public Speaking', 'Manajemen Proyek',
     'Penulisan', 'Analisis Data', 'UI Design', 'Riset Pengguna', 'SQL', 'Copywriting',
@@ -1190,7 +1210,9 @@ class _BuatProjectPageState extends State<BuatProjectPage> {
         'gayaKerja': _gayaKerja,
         'pengalamanReq': _pengalamanReq,
         'jadwalSlot': _ketersediaan.toList(),
-        'roles': _peran.map((p) => {'namaRole': p, 'kuota': 1, 'skillDicari': _skill.toList()}).toList(),
+        'roles': _peran.entries
+            .map((e) => {'namaRole': e.key, 'kuota': e.value, 'skillDicari': _skill.toList()})
+            .toList(),
       };
       final res = await apiPost('/people-to-project/projects', body);
       if (!mounted) return;
@@ -1247,6 +1269,36 @@ class _BuatProjectPageState extends State<BuatProjectPage> {
         }).toList(),
       );
 
+  Widget _barisKuotaPeran(String role) {
+    final kuota = _peran[role] ?? 1;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE2E8F0))),
+      child: Row(children: [
+        Expanded(child: Text(role, style: const TextStyle(color: _navy, fontWeight: FontWeight.w600))),
+        IconButton(
+          icon: const Icon(Icons.remove_circle_outline, size: 22),
+          color: kuota > 1 ? _biru : const Color(0xFFCBD5E1),
+          onPressed: kuota > 1 ? () => setState(() => _peran[role] = kuota - 1) : null,
+        ),
+        SizedBox(
+          width: 24,
+          child: Text('$kuota', textAlign: TextAlign.center,
+              style: const TextStyle(fontWeight: FontWeight.bold, color: _navy, fontSize: 16)),
+        ),
+        IconButton(
+          icon: const Icon(Icons.add_circle_outline, size: 22),
+          color: _biru,
+          onPressed: () => setState(() => _peran[role] = kuota + 1),
+        ),
+      ]),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1295,10 +1347,61 @@ class _BuatProjectPageState extends State<BuatProjectPage> {
             (o) => _ketersediaan.contains(o) ? _ketersediaan.remove(o) : _ketersediaan.add(o)),
 
         Row(children: [_label('PERAN DIBUTUHKAN'), const Text(' *', style: TextStyle(color: Color(0xFFDC2626)))]),
-        _pilihan(_peranOpsi, (o) => _peran.contains(o), (o) => _peran.contains(o) ? _peran.remove(o) : _peran.add(o)),
+        _pilihan(_peranOpsi, (o) => _peran.containsKey(o), (o) {
+          if (_peran.containsKey(o)) {
+            _peran.remove(o);
+          } else {
+            _peran[o] = 1;
+          }
+        }),
+        if (_peran.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          const Text('Jumlah orang dibutuhkan per peran:', style: TextStyle(color: _abu, fontSize: 12)),
+          const SizedBox(height: 8),
+          ..._peran.keys.map((role) => _barisKuotaPeran(role)),
+        ],
         _label('SKILL DIBUTUHKAN'),
         _pilihan(_skillOpsi, (o) => _skill.contains(o), (o) => _skill.contains(o) ? _skill.remove(o) : _skill.add(o)),
       ]),
     );
   }
+}
+
+// ================= EMPTY STATE (konsisten dengan modul People-to-People) =================
+class _EmptyState extends StatelessWidget {
+  final IconData icon;
+  final String judul, subtitle, tombol;
+  final VoidCallback onTombol;
+  const _EmptyState(
+      {required this.icon,
+      required this.judul,
+      required this.subtitle,
+      required this.tombol,
+      required this.onTombol});
+  @override
+  Widget build(BuildContext context) => Center(
+        child: Container(
+          margin: const EdgeInsets.all(8),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF6F8FB),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFCBD5E1)),
+          ),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            CircleAvatar(radius: 32, backgroundColor: const Color(0xFFE8EDF5), child: Icon(icon, color: _biru)),
+            const SizedBox(height: 14),
+            Text(judul, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: _navy)),
+            const SizedBox(height: 8),
+            Text(subtitle, textAlign: TextAlign.center, style: const TextStyle(color: _abu, height: 1.4)),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: onTombol,
+              style: FilledButton.styleFrom(
+                  backgroundColor: _biru, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+              child: Text(tombol, style: const TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ]),
+        ),
+      );
 }
