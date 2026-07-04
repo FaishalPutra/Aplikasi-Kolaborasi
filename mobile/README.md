@@ -32,15 +32,18 @@ Kalau menjalankan di **HP fisik** (bukan emulator), ganti base URL di `lib/api.d
 Tiap modul = 1 file di `lib/modules/`:
 - `auth.dart` — Welcome / Login / Register
 - `people_to_project.dart` — 3 tab (Rekomendasi/Terdaftar/Proyek Saya) + Detail Proyek + Kelola Proyek + Buat Proyek
-- `people_to_people.dart` — 2 tab (Rekomendasi/Koneksi) + Detail Partner
-- `profil.dart` — tab Profil (lihat & edit 6 atribut + kontak) + tombol Keluar
+- `people_to_people.dart` — 2 tab utama (Rekomendasi/Koneksi) + Detail Partner:
+  - Rekomendasi: filter band skor (Semua/Sangat Cocok/Cocok/Cukup Cocok) + filter atribut (minat/peran/gaya kerja/waktu) lewat bottom sheet, kartu tinggi konsisten, status tombol Simpan/Tertarik tersimpan per kandidat
+  - Koneksi: 4 sub-tab — Terhubung (dengan tag asal koneksi "Saling tertarik"/"Via koneksi"), Permintaan, Disimpan, Menyukai (cuma jumlah, identitas dirahasiakan sampai mutual)
+  - Badge merah di tab Koneksi untuk permintaan pending + koneksi baru yang belum dilihat
+- `profil.dart` — tab Profil (lihat & edit 6 atribut kolaboratif + asal kampus/jurusan/angkatan/bio + kontak) + tombol Keluar
 - `team_formation.dart` — placeholder, belum ada isinya
 
 `main.dart` menyimpan navigasi login (`masukKeApp`) dan logout (`keluarDariApp`) sebagai fungsi bersama.
 
 ## Akun demo
 
-Password semua akun: `123456`. Lihat README root untuk daftar lengkap. Coba `sarah@test.id` — profil sudah lengkap, langsung bisa lihat rekomendasi proyek & partner.
+Tidak ada akun demo bawaan — lihat README root bagian "Akun demo" untuk cara membuat akun testing lewat halaman Register + Edit Profil.
 
 ## Catatan
 

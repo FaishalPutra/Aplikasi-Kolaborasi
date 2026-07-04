@@ -46,14 +46,7 @@ PostgreSQL harus sudah jalan (service lokal) sebelum backend dinyalakan. Detail 
 
 ## Akun demo
 
-Sudah tersedia di database lokal (password sama semua: `123456`), profil sudah lengkap:
-
-| Email | Nama | Catatan |
-|---|---|---|
-| `sarah@test.id` | Sarah Wijaya | Pembuat 3 proyek demo (skor 100%/71,5%/43,1% terhadap satu sama lain) |
-| `budi@test.id` | Budi Santoso | Pembuat 3 proyek demo di atas |
-| `citra.uji@test.id` | Citra Uji | Akun uji alur signup → isi profil → pencocokan |
-| `a@b.com` | Faishal A | Akun demo awal |
+**Tidak ada akun/data yang otomatis ter-seed** — database kosong setelah `prisma migrate`. Kalau butuh akun untuk testing, buat sendiri lewat `POST /api/auth/register` lalu lengkapi profil (`PUT /api/auth/akun` dan `PUT /api/auth/profil`), atau lewat halaman Register di app. Minimal 2 akun dengan profil lengkap dibutuhkan untuk mencoba alur dua arah (rekomendasi, tertarik, hubungkan, dll).
 
 ## Struktur folder
 

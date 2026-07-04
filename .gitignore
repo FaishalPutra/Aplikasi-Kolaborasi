@@ -9,3 +9,4 @@ mobile/.flutter-plugins*
 *.apk
 .idea/
 .vscode/
+.DS_Store

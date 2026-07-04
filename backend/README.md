@@ -40,7 +40,7 @@ Setiap modul = 1 file di `src/modules/`, digabung di `src/routes.ts`. Dua Affini
 | POST | `/logout` | UC03 |
 | GET/PUT | `/profil` | UC04 — 6 atribut kolaboratif |
 | GET | `/me` | akun + profil sekaligus (dipakai tab Profil) |
-| PUT | `/akun` | ubah nama, kontak, jenis kontak |
+| PUT | `/akun` | ubah nama, **asal kampus (wajib)**, jurusan, angkatan, bio, kontak, jenis kontak |
 
 ### People-to-Project (`/api/people-to-project`)
 | Method | Path | Keterangan |
@@ -62,17 +62,18 @@ Setiap modul = 1 file di `src/modules/`, digabung di `src/routes.ts`. Dua Affini
 |---|---|---|
 | POST | `/hitung` | demo Affinity Engine tanpa DB |
 | PATCH | `/visibility` | UC05 — muncul/sembunyi dari feed orang lain |
-| GET | `/feed` | UC06+07 — rekomendasi (+`?filter=sangat\|cocok\|waktu`) |
-| GET | `/profil/:id` | UC08 — detail calon partner |
-| POST | `/saved` / GET `/saved` | UC09 |
-| POST | `/interest` | UC10 |
-| POST | `/connect` | UC11 — kirim permintaan (auto-connect jika saling tertarik) |
+| GET | `/feed` | UC06+07 — rekomendasi. Filter band skor eksklusif `?tier=sangat\|cocok\|cukup`, dikombinasikan dengan filter atribut `?minat=`, `?peran=`, `?gaya=`, `?waktu=` (comma-separated, bisa gabung semua) |
+| GET | `/profil/:id` | UC08 — detail calon partner, termasuk `sudahDisimpan`/`sudahTertarik` |
+| POST | `/saved` / GET `/saved` | UC09 — GET sudah di-enrich (nama, institusi, skor) |
+| POST | `/interest` | UC10 — **auto-connect kalau saling tertarik** (mutual express interest) |
+| GET | `/menyukai-saya` | jumlah orang yang tertarik ke kita (`{ jumlah }`) — identitas sengaja dirahasiakan sampai mutual |
+| POST | `/connect` | UC11 — kirim permintaan (auto-connect jika lawan sudah kirim duluan) |
 | GET | `/requests` | daftar permintaan masuk |
 | PATCH | `/connect/:id` | terima/tolak permintaan |
-| GET | `/connections` | UC12 — daftar koneksi + kontak terbuka |
+| GET | `/connections` | UC12 — daftar koneksi + kontak terbuka + `asal` (`INTEREST`/`REQUEST`, cara koneksi terbentuk) |
 
 Semua endpoint (kecuali `/health` dan `/hitung`) butuh header `Authorization: Bearer <token>`.
 
 ## Akun demo
 
-Lihat README root untuk daftar akun demo yang sudah ada di database lokal.
+Tidak ada seed data — lihat README root bagian "Akun demo" untuk cara membuat akun testing sendiri.

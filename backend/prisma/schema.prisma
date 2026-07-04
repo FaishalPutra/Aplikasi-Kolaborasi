@@ -28,7 +28,10 @@ model Mahasiswa {
   nama      String
   email     String   @unique
   password  String                 // hash bcrypt (UC01/UC02)
-  institusi String?
+  institusi String?                // asal kampus (wajib diisi lewat UC04 akun)
+  jurusan   String?
+  angkatan  Int?
+  bio       String?
   kontak      String?               // ditampilkan ke pembuat saat diterima (UC11)
   kontakJenis String?               // "WHATSAPP" | "LINE" | "LINKEDIN" (platform kontak utama)
   createdAt DateTime @default(now())
@@ -174,6 +177,7 @@ model Connection {
   mahasiswaAId String
   mahasiswaBId String
   connectedAt  DateTime @default(now())
+  asal         String   @default("REQUEST") // "INTEREST" (saling tertarik) | "REQUEST" (via Hubungkan)
 
   @@unique([mahasiswaAId, mahasiswaBId])
 }

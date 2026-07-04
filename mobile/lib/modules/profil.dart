@@ -311,6 +311,10 @@ class EditProfilPage extends StatefulWidget {
 
 class _EditProfilPageState extends State<EditProfilPage> {
   late final TextEditingController _nama;
+  late final TextEditingController _institusi;
+  late final TextEditingController _jurusan;
+  late final TextEditingController _angkatan;
+  late final TextEditingController _bio;
   late final TextEditingController _kontak;
   String _kontakJenis = 'WHATSAPP';
   final Set<String> _skill = {};
@@ -327,6 +331,10 @@ class _EditProfilPageState extends State<EditProfilPage> {
     final me = widget.me;
     final profil = me['profil'] as Map?;
     _nama = TextEditingController(text: me['nama']?.toString() ?? '');
+    _institusi = TextEditingController(text: me['institusi']?.toString() ?? '');
+    _jurusan = TextEditingController(text: me['jurusan']?.toString() ?? '');
+    _angkatan = TextEditingController(text: me['angkatan']?.toString() ?? '');
+    _bio = TextEditingController(text: me['bio']?.toString() ?? '');
     _kontak = TextEditingController(text: me['kontak']?.toString() ?? '');
     _kontakJenis = _kontakOpsi.contains(me['kontakJenis']) ? me['kontakJenis'].toString() : 'WHATSAPP';
     if (profil != null) {
@@ -342,7 +350,7 @@ class _EditProfilPageState extends State<EditProfilPage> {
     }
   }
 
-  bool get _valid => _nama.text.trim().isNotEmpty;
+  bool get _valid => _nama.text.trim().isNotEmpty && _institusi.text.trim().isNotEmpty;
   int get _pengalamanReq => _pengalamanOpsi.indexOf(_pengalaman) + 1;
 
   Future<void> _simpan() async {
@@ -350,6 +358,10 @@ class _EditProfilPageState extends State<EditProfilPage> {
     try {
       final resAkun = await apiPut('/auth/akun', {
         'nama': _nama.text.trim(),
+        'institusi': _institusi.text.trim(),
+        'jurusan': _jurusan.text.trim(),
+        'angkatan': int.tryParse(_angkatan.text.trim()),
+        'bio': _bio.text.trim(),
         'kontak': _kontak.text.trim(),
         'kontakJenis': _kontakJenis,
       });
@@ -379,9 +391,13 @@ class _EditProfilPageState extends State<EditProfilPage> {
 
   Widget _label(String t) => Padding(padding: const EdgeInsets.only(bottom: 8, top: 20), child: _sectionTitle(t));
 
-  Widget _field(TextEditingController c, String hint) => TextField(
+  Widget _field(TextEditingController c, String hint,
+          {TextInputType? keyboardType, int maxLines = 1}) =>
+      TextField(
         controller: c,
         onChanged: (_) => setState(() {}),
+        keyboardType: keyboardType,
+        maxLines: maxLines,
         decoration: InputDecoration(
           hintText: hint,
           filled: true,
@@ -443,6 +459,14 @@ class _EditProfilPageState extends State<EditProfilPage> {
       body: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 16), children: [
         _label('NAMA'),
         _field(_nama, 'Nama lengkap'),
+        _label('ASAL KAMPUS (WAJIB)'),
+        _field(_institusi, 'cth: Institut Teknologi Bandung'),
+        _label('JURUSAN'),
+        _field(_jurusan, 'cth: Teknik Industri'),
+        _label('ANGKATAN'),
+        _field(_angkatan, 'cth: 2022', keyboardType: TextInputType.number),
+        _label('BIO'),
+        _field(_bio, 'Ceritakan singkat tentang dirimu', maxLines: 3),
         _label('KONTAK UTAMA'),
         _pilihan(_kontakOpsi, (o) => _kontakJenis == o, (o) => _kontakJenis = o),
         const SizedBox(height: 10),

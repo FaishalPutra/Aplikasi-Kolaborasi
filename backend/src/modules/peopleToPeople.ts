@@ -72,11 +72,26 @@ router.get('/feed', wajibLogin, async (req: AuthedRequest, res) => {
   // kandidat: profil lengkap, visible, bukan diri sendiri
   const kandidat = await prisma.profil.findMany({
     where: { lengkap: true, visibilitas: true, mahasiswaId: { not: me } },
-    include: { mahasiswa: { select: { nama: true, institusi: true } } },
+    include: { mahasiswa: { select: { nama: true, institusi: true, jurusan: true, angkatan: true, bio: true } } },
   });
 
   const meOrang = toProfilOrang(myProfil);
-  const filter = (req.query.filter as string) || 'semua';
+
+  // Lapis 1: band skor (eksklusif, ikut label yang sama dengan AffinityEngine)
+  const TIER_LABEL: Record<string, string> = {
+    sangat: 'Sangat Cocok',
+    cocok: 'Cocok',
+    cukup: 'Cukup Cocok',
+  };
+  const tier = (req.query.tier as string) || 'semua';
+
+  // Lapis 2: filter atribut (bisa dikombinasikan, tiap kategori di-OR-kan lalu di-AND-kan antar kategori)
+  const splitParam = (v: unknown) =>
+    typeof v === 'string' ? v.split(',').map((s) => s.trim()).filter(Boolean) : [];
+  const minatFilter = splitParam(req.query.minat);
+  const waktuFilter = splitParam(req.query.waktu);
+  const peranFilter = (req.query.peran as string) || '';
+  const gayaFilter = (req.query.gaya as string) || '';
 
   const hasil = [];
   for (const k of kandidat) {
@@ -98,14 +113,19 @@ router.get('/feed', wajibLogin, async (req: AuthedRequest, res) => {
     });
 
     // filter UC07
-    if (filter === 'sangat' && skor.nilaiTotal < 0.75) continue;
-    if (filter === 'cocok' && skor.nilaiTotal < 0.5) continue;
-    if (filter === 'waktu' && skor.breakdown.ketersediaan.skor <= 0) continue;
+    if (tier !== 'semua' && skor.label !== TIER_LABEL[tier]) continue;
+    if (minatFilter.length && !k.minatTag.some((m) => minatFilter.includes(m))) continue;
+    if (peranFilter && k.preferensiPeran !== peranFilter) continue;
+    if (gayaFilter && k.gayaKerja !== gayaFilter) continue;
+    if (waktuFilter.length && !k.ketersediaanWaktu.some((w) => waktuFilter.includes(w))) continue;
 
     hasil.push({
       mahasiswaId: k.mahasiswaId,
       nama: k.mahasiswa.nama,
       institusi: k.mahasiswa.institusi ?? '',
+      jurusan: k.mahasiswa.jurusan ?? '',
+      angkatan: k.mahasiswa.angkatan,
+      bio: k.mahasiswa.bio ?? '',
       persen: skor.persen,
       label: skor.label,
       alasan: alasanCocok(skor.breakdown, meOrang, toProfilOrang(k)),
@@ -142,18 +162,29 @@ router.get('/profil/:id', wajibLogin, async (req: AuthedRequest, res) => {
   const targetId = req.params.id;
   const target = await prisma.profil.findUnique({
     where: { mahasiswaId: targetId },
-    include: { mahasiswa: { select: { nama: true, institusi: true, kontak: true } } },
+    include: {
+      mahasiswa: { select: { nama: true, institusi: true, jurusan: true, angkatan: true, bio: true, kontak: true } },
+    },
   });
   if (!target || !target.lengkap) return res.status(404).json({ error: 'Profil tidak tersedia' });
 
   const myProfil = await prisma.profil.findUnique({ where: { mahasiswaId: me } });
   const affinity = myProfil ? hitungAffinityPeople(toProfilOrang(myProfil), toProfilOrang(target)) : null;
   const terhubung = await sudahTerhubung(me, targetId);
+  const sudahDisimpan = !!(await prisma.savedProfile.findUnique({
+    where: { ownerId_targetId: { ownerId: me, targetId } },
+  }));
+  const sudahTertarik = !!(await prisma.expressInterest.findUnique({
+    where: { senderId_receiverId: { senderId: me, receiverId: targetId } },
+  }));
 
   return res.json({
     mahasiswaId: targetId,
     nama: target.mahasiswa.nama,
     institusi: target.mahasiswa.institusi ?? '',
+    jurusan: target.mahasiswa.jurusan ?? '',
+    angkatan: target.mahasiswa.angkatan,
+    bio: target.mahasiswa.bio ?? '',
     minat: target.minatTag,
     skill: target.skill,
     pengalaman: target.pengalaman,
@@ -162,6 +193,8 @@ router.get('/profil/:id', wajibLogin, async (req: AuthedRequest, res) => {
     ketersediaanWaktu: target.ketersediaanWaktu,
     affinity,
     terhubung,
+    sudahDisimpan,
+    sudahTertarik,
     // kontak hanya dibuka jika sudah terhubung (mockup: "terbuka setelah terhubung")
     kontak: terhubung ? target.mahasiswa.kontak ?? '' : null,
   });
@@ -180,21 +213,67 @@ router.post('/saved', wajibLogin, async (req: AuthedRequest, res) => {
 });
 
 router.get('/saved', wajibLogin, async (req: AuthedRequest, res) => {
-  const rows = await prisma.savedProfile.findMany({ where: { ownerId: req.mahasiswaId! } });
-  return res.json({ saved: rows });
+  const me = req.mahasiswaId!;
+  const rows = await prisma.savedProfile.findMany({ where: { ownerId: me } });
+  const myProfil = await prisma.profil.findUnique({ where: { mahasiswaId: me } });
+  const out = [];
+  for (const r of rows) {
+    const p = await prisma.profil.findUnique({
+      where: { mahasiswaId: r.targetId },
+      include: { mahasiswa: { select: { nama: true, institusi: true } } },
+    });
+    const aff = p && myProfil ? hitungAffinityPeople(toProfilOrang(myProfil), toProfilOrang(p)) : null;
+    out.push({
+      targetId: r.targetId,
+      nama: p?.mahasiswa.nama ?? '',
+      institusi: p?.mahasiswa.institusi ?? '',
+      persen: aff?.persen ?? 0,
+      label: aff?.label ?? '',
+    });
+  }
+  return res.json({ saved: out });
 });
 
 // ---------- UC10: express interest ----------
 router.post('/interest', wajibLogin, async (req: AuthedRequest, res) => {
+  const me = req.mahasiswaId!;
   const { receiverId } = req.body ?? {};
   if (!receiverId) return res.status(400).json({ error: 'receiverId wajib' });
-  if (receiverId === req.mahasiswaId) return res.status(400).json({ error: 'Tidak bisa ke diri sendiri' });
+  if (receiverId === me) return res.status(400).json({ error: 'Tidak bisa ke diri sendiri' });
   await prisma.expressInterest.upsert({
-    where: { senderId_receiverId: { senderId: req.mahasiswaId!, receiverId } },
-    create: { senderId: req.mahasiswaId!, receiverId },
+    where: { senderId_receiverId: { senderId: me, receiverId } },
+    create: { senderId: me, receiverId },
     update: {},
   });
-  return res.json({ ok: true });
+
+  // jika lawan juga sudah menandai tertarik ke saya → saling tertarik, otomatis terhubung
+  const balasan = await prisma.expressInterest.findUnique({
+    where: { senderId_receiverId: { senderId: receiverId, receiverId: me } },
+  });
+  if (balasan) {
+    const [x, y] = pair(me, receiverId);
+    await prisma.connection.upsert({
+      where: { mahasiswaAId_mahasiswaBId: { mahasiswaAId: x, mahasiswaBId: y } },
+      create: { mahasiswaAId: x, mahasiswaBId: y, asal: 'INTEREST' },
+      update: {},
+    });
+    return res.json({ ok: true, status: 'CONNECTED', pesan: 'Koneksi terbentuk (saling tertarik)' });
+  }
+
+  return res.json({ ok: true, status: 'PENDING', pesan: 'Kamu menandai tertarik' });
+});
+
+// ---------- Ekstra: berapa orang yang tertarik ke saya (identitas dirahasiakan
+// sampai saling tertarik — bukan daftar, cuma jumlah) ----------
+router.get('/menyukai-saya', wajibLogin, async (req: AuthedRequest, res) => {
+  const me = req.mahasiswaId!;
+  const rows = await prisma.expressInterest.findMany({ where: { receiverId: me } });
+  let jumlah = 0;
+  for (const r of rows) {
+    if (await sudahTerhubung(me, r.senderId)) continue; // sudah terhubung, cukup muncul di tab Terhubung
+    jumlah++;
+  }
+  return res.json({ jumlah });
 });
 
 // ---------- UC11: kirim connect request ----------
@@ -286,13 +365,17 @@ router.get('/connections', wajibLogin, async (req: AuthedRequest, res) => {
     const otherId = c.mahasiswaAId === me ? c.mahasiswaBId : c.mahasiswaAId;
     const m = await prisma.mahasiswa.findUnique({
       where: { id: otherId },
-      select: { nama: true, institusi: true, kontak: true },
+      select: { nama: true, institusi: true, jurusan: true, angkatan: true, kontak: true, kontakJenis: true },
     });
     out.push({
       mahasiswaId: otherId,
       nama: m?.nama ?? '',
       institusi: m?.institusi ?? '',
+      jurusan: m?.jurusan ?? '',
+      angkatan: m?.angkatan,
       kontak: m?.kontak ?? '', // terbuka karena sudah terhubung
+      kontakJenis: m?.kontakJenis ?? '',
+      asal: c.asal,
       connectedAt: c.connectedAt,
     });
   }

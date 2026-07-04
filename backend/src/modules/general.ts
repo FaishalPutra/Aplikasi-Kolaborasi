@@ -56,22 +56,29 @@ router.get('/me', wajibLogin, async (req: AuthedRequest, res) => {
     nama: mhs.nama,
     email: mhs.email,
     institusi: mhs.institusi,
+    jurusan: mhs.jurusan,
+    angkatan: mhs.angkatan,
+    bio: mhs.bio,
     kontak: mhs.kontak,
     kontakJenis: mhs.kontakJenis,
     profil,
   });
 });
 
-// Ubah data akun dasar (nama + kontak)
+// Ubah data akun dasar (nama, asal kampus, jurusan, angkatan, bio, kontak)
 router.put('/akun', wajibLogin, async (req: AuthedRequest, res) => {
-  const { nama, institusi, kontak, kontakJenis } = req.body ?? {};
+  const { nama, institusi, jurusan, angkatan, bio, kontak, kontakJenis } = req.body ?? {};
   if (!nama || !nama.trim()) return res.status(400).json({ error: 'Nama wajib diisi' });
+  if (!institusi || !institusi.trim()) return res.status(400).json({ error: 'Asal kampus wajib diisi' });
 
   const mhs = await prisma.mahasiswa.update({
     where: { id: req.mahasiswaId! },
     data: {
       nama: nama.trim(),
-      institusi: institusi ?? null,
+      institusi: institusi.trim(),
+      jurusan: jurusan?.trim() || null,
+      angkatan: typeof angkatan === 'number' ? angkatan : null,
+      bio: bio?.trim() || null,
       kontak: kontak ?? null,
       kontakJenis: kontakJenis ?? null,
     },
@@ -80,6 +87,9 @@ router.put('/akun', wajibLogin, async (req: AuthedRequest, res) => {
     id: mhs.id,
     nama: mhs.nama,
     institusi: mhs.institusi,
+    jurusan: mhs.jurusan,
+    angkatan: mhs.angkatan,
+    bio: mhs.bio,
     kontak: mhs.kontak,
     kontakJenis: mhs.kontakJenis,
   });
@@ -90,14 +100,18 @@ router.put('/profil', wajibLogin, async (req: AuthedRequest, res) => {
   const { skill, pengalaman, minatTag, gayaKerja, preferensiPeran, ketersediaanWaktu } =
     req.body ?? {};
 
-  // Validasi field wajib
+  // Validasi field wajib (array tidak boleh kosong — profil baru dianggap
+  // "lengkap" kalau semua atribut benar-benar terisi, dipakai AffinityEngine di 3 modul)
   if (
     !Array.isArray(skill) ||
+    skill.length === 0 ||
     typeof pengalaman !== 'number' ||
     !Array.isArray(minatTag) ||
+    minatTag.length === 0 ||
     !gayaKerja ||
     !preferensiPeran ||
-    !Array.isArray(ketersediaanWaktu)
+    !Array.isArray(ketersediaanWaktu) ||
+    ketersediaanWaktu.length === 0
   ) {
     return res.status(400).json({ error: 'Field profil tidak lengkap atau tipe salah' });
   }
