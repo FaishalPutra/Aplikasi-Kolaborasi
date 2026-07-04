@@ -39,23 +39,6 @@ Widget _badgeChip(String badge) {
   );
 }
 
-IconData _kategoriIcon(String? k) {
-  switch (k) {
-    case 'Riset':
-      return Icons.science_outlined;
-    case 'Desain':
-      return Icons.palette_outlined;
-    case 'Kewirausahaan':
-      return Icons.rocket_launch_outlined;
-    case 'Kompetisi':
-      return Icons.emoji_events_outlined;
-    case 'KKN':
-      return Icons.volunteer_activism_outlined;
-    default:
-      return Icons.work_outline;
-  }
-}
-
 IconData _ikonKontak(String? jenis) {
   switch (jenis) {
     case 'WHATSAPP':
@@ -69,11 +52,19 @@ IconData _ikonKontak(String? jenis) {
   }
 }
 
-Widget _ikonKotak(String? kategori, {double size = 52}) => Container(
+// "· Teknik Industri · 2022" — format sama dengan people_to_people.dart agar konsisten.
+String _jurusanAngkatan(dynamic jurusan, dynamic angkatan) {
+  final j = jurusan?.toString() ?? '';
+  if (j.isEmpty && angkatan == null) return '';
+  if (j.isEmpty) return ' · $angkatan';
+  return angkatan != null ? ' · $j · $angkatan' : ' · $j';
+}
+
+Widget _ikonKotak({double size = 52}) => Container(
       width: size,
       height: size,
       decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(14)),
-      child: Icon(_kategoriIcon(kategori), color: _navy),
+      child: const Icon(Icons.work_outline, color: _navy),
     );
 
 Widget _chipList(List<String> items) => Wrap(
@@ -135,6 +126,7 @@ class PeopleToProjectPage extends StatefulWidget {
 
 class _PeopleToProjectPageState extends State<PeopleToProjectPage> {
   int _tab = 0;
+  int _jumlahPendingPendaftar = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -149,7 +141,15 @@ class _PeopleToProjectPageState extends State<PeopleToProjectPage> {
             Expanded(
               child: IndexedStack(
                 index: _tab,
-                children: const [_RekomendasiTab(), _TerdaftarTab(), _ProyekSayaTab()],
+                children: [
+                  const _RekomendasiTab(),
+                  const _TerdaftarTab(),
+                  _ProyekSayaTab(
+                    onJumlahBerubah: (j) {
+                      if (mounted) setState(() => _jumlahPendingPendaftar = j);
+                    },
+                  ),
+                ],
               ),
             ),
           ]),
@@ -159,7 +159,7 @@ class _PeopleToProjectPageState extends State<PeopleToProjectPage> {
   }
 
   Widget _toggle() {
-    Widget seg(String label, int i) {
+    Widget seg(String label, int i, {int badge = 0}) {
       final aktif = _tab == i;
       return Expanded(
         child: GestureDetector(
@@ -172,8 +172,20 @@ class _PeopleToProjectPageState extends State<PeopleToProjectPage> {
               boxShadow: aktif ? [const BoxShadow(color: Color(0x14000000), blurRadius: 8)] : null,
             ),
             alignment: Alignment.center,
-            child: Text(label,
-                style: TextStyle(fontWeight: FontWeight.bold, color: aktif ? _biru : _abu, fontSize: 13)),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Text(label, style: TextStyle(fontWeight: FontWeight.bold, color: aktif ? _biru : _abu, fontSize: 13)),
+              if (badge > 0) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: const BoxDecoration(color: Color(0xFFDC2626), shape: BoxShape.circle),
+                  constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                  child: Text('$badge',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ]),
           ),
         ),
       );
@@ -182,7 +194,11 @@ class _PeopleToProjectPageState extends State<PeopleToProjectPage> {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(color: const Color(0xFFEEF2F7), borderRadius: BorderRadius.circular(14)),
-      child: Row(children: [seg('Rekomendasi', 0), seg('Terdaftar', 1), seg('Proyek Saya', 2)]),
+      child: Row(children: [
+        seg('Rekomendasi', 0),
+        seg('Terdaftar', 1),
+        seg('Proyek Saya', 2, badge: _jumlahPendingPendaftar),
+      ]),
     );
   }
 }
@@ -273,20 +289,17 @@ class _RekomendasiTabState extends State<_RekomendasiTab> with AutomaticKeepAliv
           padding: const EdgeInsets.all(16),
           child: Column(children: [
             Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              _ikonKotak(item['kategori']?.toString()),
+              _ikonKotak(),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Row(children: [
                     Expanded(
-                      child: Text('${item['kategori'] ?? 'Lainnya'}',
-                          style: const TextStyle(color: _abu, fontSize: 12, fontWeight: FontWeight.w600)),
+                      child: Text(item['judul']?.toString() ?? '-',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: _navy)),
                     ),
                     _badgeChip(item['badge']?.toString() ?? ''),
                   ]),
-                  const SizedBox(height: 4),
-                  Text(item['judul']?.toString() ?? '-',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: _navy)),
                 ]),
               ),
             ]),
@@ -385,15 +398,14 @@ class _TerdaftarTabState extends State<_TerdaftarTab> {
           padding: const EdgeInsets.all(16),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
-              _ikonKotak(r['kategori']?.toString(), size: 46),
+              _ikonKotak(size: 46),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(r['judul']?.toString() ?? '-',
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: _navy)),
                   const SizedBox(height: 2),
-                  Text('${r['kategori'] ?? '-'} · ${r['role'] ?? ''}',
-                      style: const TextStyle(color: _abu, fontSize: 13)),
+                  Text(r['role']?.toString() ?? '', style: const TextStyle(color: _abu, fontSize: 13)),
                 ]),
               ),
               Container(
@@ -430,7 +442,8 @@ class _TerdaftarTabState extends State<_TerdaftarTab> {
 
 // ================= TAB 3: PROYEK SAYA =================
 class _ProyekSayaTab extends StatefulWidget {
-  const _ProyekSayaTab();
+  const _ProyekSayaTab({this.onJumlahBerubah});
+  final void Function(int jumlahPendingPendaftar)? onJumlahBerubah;
   @override
   State<_ProyekSayaTab> createState() => _ProyekSayaTabState();
 }
@@ -454,6 +467,8 @@ class _ProyekSayaTabState extends State<_ProyekSayaTab> {
     try {
       final res = await apiGet('/people-to-project/saya');
       setState(() => _rows = res is List ? res : []);
+      final total = _rows.fold<int>(0, (s, r) => s + (((r as Map)['pendingBaru'] as num?)?.toInt() ?? 0));
+      widget.onJumlahBerubah?.call(total);
     } catch (_) {} finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -510,14 +525,14 @@ class _ProyekSayaTabState extends State<_ProyekSayaTab> {
         padding: const EdgeInsets.all(16),
         child: Column(children: [
           Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            _ikonKotak(r['kategori']?.toString()),
+            _ikonKotak(),
             const SizedBox(width: 14),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(children: [
-                  Expanded(
-                    child: Text('${r['kategori'] ?? 'Lainnya'} · dibuat olehmu',
-                        style: const TextStyle(color: _abu, fontSize: 12, fontWeight: FontWeight.w600)),
+                  const Expanded(
+                    child: Text('Dibuat olehmu',
+                        style: TextStyle(color: _abu, fontSize: 12, fontWeight: FontWeight.w600)),
                   ),
                   if (pendingBaru > 0)
                     Container(
@@ -680,12 +695,10 @@ class _DetailProjectPageState extends State<DetailProjectPage> {
       bottomNavigationBar: _bar(p, roles),
       body: ListView(padding: const EdgeInsets.all(16), children: [
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          _ikonKotak(p['kategori']?.toString(), size: 60),
+          _ikonKotak(size: 60),
           const SizedBox(width: 14),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('${p['kategori'] ?? 'Lainnya'}', style: const TextStyle(color: _abu, fontSize: 13, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 2),
               Text(p['judul']?.toString() ?? '-',
                   style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: _navy)),
               if (p['milikSaya'] != true && (p['namaPembuat']?.toString() ?? '').isNotEmpty) ...[
@@ -693,7 +706,12 @@ class _DetailProjectPageState extends State<DetailProjectPage> {
                 Row(children: [
                   const Icon(Icons.person_outline, size: 14, color: _abu),
                   const SizedBox(width: 4),
-                  Text('Diajukan oleh ${p['namaPembuat']}', style: const TextStyle(color: _abu, fontSize: 13)),
+                  Expanded(
+                    child: Text(
+                        'Diajukan oleh ${p['namaPembuat']}${_jurusanAngkatan(p['jurusanPembuat'], p['angkatanPembuat'])}',
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: _abu, fontSize: 13)),
+                  ),
                 ]),
               ],
             ]),
@@ -1010,12 +1028,12 @@ class _KelolaProjectPageState extends State<KelolaProjectPage> {
         onRefresh: _muat,
         child: ListView(padding: const EdgeInsets.all(16), children: [
           Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            _ikonKotak(p?['kategori']?.toString(), size: 56),
+            _ikonKotak(size: 56),
             const SizedBox(width: 14),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('${p?['kategori'] ?? 'Lainnya'} · dibuat olehmu',
-                    style: const TextStyle(color: _abu, fontSize: 12, fontWeight: FontWeight.w600)),
+                const Text('Dibuat olehmu',
+                    style: TextStyle(color: _abu, fontSize: 12, fontWeight: FontWeight.w600)),
                 Text(p?['judul']?.toString() ?? '-',
                     style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold, color: _navy)),
               ]),
@@ -1096,6 +1114,9 @@ class _KelolaProjectPageState extends State<KelolaProjectPage> {
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(nama, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: _navy)),
+                if ((m['jurusan']?.toString() ?? '').isNotEmpty || m['angkatan'] != null)
+                  Text(_jurusanAngkatan(m['jurusan'], m['angkatan']).replaceFirst(' · ', ''),
+                      style: const TextStyle(color: _abu, fontSize: 12)),
                 if (d['skorPersen'] != null)
                   Text('${d['skorPersen']}% cocok', style: const TextStyle(color: _abu, fontSize: 13)),
               ]),
@@ -1167,7 +1188,6 @@ class BuatProjectPage extends StatefulWidget {
 class _BuatProjectPageState extends State<BuatProjectPage> {
   final _judul = TextEditingController();
   final _deskripsi = TextEditingController();
-  String? _kategori;
   final Map<String, int> _peran = {}; // namaRole -> kuota (jumlah orang dibutuhkan)
   final Set<String> _skill = {};
   // 6 atribut yang dipakai Affinity Engine (sama seperti profil mahasiswa).
@@ -1177,7 +1197,6 @@ class _BuatProjectPageState extends State<BuatProjectPage> {
   final Set<String> _ketersediaan = {};
   bool _loading = false;
 
-  final _kategoriOpsi = const ['Riset', 'Desain', 'Kewirausahaan', 'Kompetisi', 'KKN', 'Lainnya'];
   // Taksonomi generik — HARUS sama persis dengan preferensiPeran profil mahasiswa,
   // karena Affinity Engine mencocokkan string-nya langsung (lihat affinityProject.ts).
   final _peranOpsi = const ['Leader/Coordinator', 'Contributor/Executor', 'Supporter/Facilitator'];
@@ -1205,7 +1224,6 @@ class _BuatProjectPageState extends State<BuatProjectPage> {
       final body = {
         'judul': _judul.text.trim(),
         'deskripsi': _deskripsi.text.trim(),
-        'kategori': _kategori,
         'minatTag': _minat.toList(),
         'gayaKerja': _gayaKerja,
         'pengalamanReq': _pengalamanReq,
@@ -1330,8 +1348,6 @@ class _BuatProjectPageState extends State<BuatProjectPage> {
       body: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 16), children: [
         _label('JUDUL PROYEK'),
         _field(_judul, 'cth: Aplikasi Absensi Berbasis QR'),
-        _label('KATEGORI'),
-        _pilihan(_kategoriOpsi, (o) => _kategori == o, (o) => _kategori = o),
         _label('DESKRIPSI'),
         _field(_deskripsi, 'Jelaskan tujuan proyek & apa yang dikerjakan…', maxLines: 4),
 

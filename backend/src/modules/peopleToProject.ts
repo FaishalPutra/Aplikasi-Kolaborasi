@@ -72,7 +72,6 @@ router.post('/projects', wajibLogin, async (req: AuthedRequest, res) => {
   const {
     judul,
     deskripsi,
-    kategori,
     timeline,
     durasi,
     format,
@@ -96,7 +95,6 @@ router.post('/projects', wajibLogin, async (req: AuthedRequest, res) => {
     data: {
       judul,
       deskripsi,
-      kategori: kategori ?? null,
       timeline: timeline ?? null,
       durasi: durasi ?? null,
       format: format ?? null,
@@ -164,7 +162,6 @@ router.get('/feed', wajibLogin, async (req: AuthedRequest, res) => {
       feed.push({
         projectId: p.id,
         judul: p.judul,
-        kategori: p.kategori,
         timeline: p.timeline,
         slotTerbuka,
         skorPersen: Math.round(hasil.affinityScore * 1000) / 10,
@@ -181,7 +178,10 @@ router.get('/feed', wajibLogin, async (req: AuthedRequest, res) => {
 router.get('/projects/:id', wajibLogin, async (req: AuthedRequest, res) => {
   const project = await prisma.project.findUnique({
     where: { id: req.params.id },
-    include: { roles: true, pembuat: { select: { nama: true, kontak: true, kontakJenis: true, email: true } } },
+    include: {
+      roles: true,
+      pembuat: { select: { nama: true, jurusan: true, angkatan: true, kontak: true, kontakJenis: true, email: true } },
+    },
   });
   if (!project) return res.status(404).json({ error: 'Project tidak ditemukan' });
 
@@ -218,6 +218,8 @@ router.get('/projects/:id', wajibLogin, async (req: AuthedRequest, res) => {
     statusSaya: pendaftaranSaya?.status ?? null,
     milikSaya: project.pembuatId === req.mahasiswaId,
     namaPembuat: pembuat.nama,
+    jurusanPembuat: pembuat.jurusan,
+    angkatanPembuat: pembuat.angkatan,
     kontakPembuat: diterima ? (pembuat.kontak ?? pembuat.email) : null,
     kontakJenisPembuat: diterima ? (pembuat.kontak ? pembuat.kontakJenis ?? 'EMAIL' : 'EMAIL') : null,
   });
@@ -288,7 +290,6 @@ router.get('/terdaftar', wajibLogin, async (req: AuthedRequest, res) => {
       pendaftaranId: r.id,
       projectId: r.projectId,
       judul: r.project.judul,
-      kategori: r.project.kategori,
       role: r.role.namaRole,
       status: r.status,
       namaPembuat: r.project.pembuat.nama,
@@ -315,7 +316,6 @@ router.get('/saya', wajibLogin, async (req: AuthedRequest, res) => {
       return {
         projectId: p.id,
         judul: p.judul,
-        kategori: p.kategori,
         totalPendaftar: p.pendaftaran.length,
         pendingBaru: p.pendaftaran.filter((x) => x.status === 'PENDING').length,
         terisi: totalKuota - sisaKuota,
@@ -352,7 +352,10 @@ router.get('/projects/:id/pendaftar', wajibLogin, async (req: AuthedRequest, res
 
   const pendaftar = await prisma.pendaftaranProject.findMany({
     where: { projectId: req.params.id },
-    include: { mahasiswa: { select: { id: true, nama: true, email: true } }, role: true },
+    include: {
+      mahasiswa: { select: { id: true, nama: true, email: true, jurusan: true, angkatan: true } },
+      role: true,
+    },
   });
 
   // Skor dihitung ulang live (bukan baca dari cache AffinityScoreProject) agar selalu

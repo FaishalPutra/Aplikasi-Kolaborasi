@@ -63,7 +63,6 @@ model Project {
   id        String        @id @default(cuid())
   judul     String
   deskripsi String
-  kategori  String?
   timeline  String?              // "Tenggat", mis. "5 hari lagi"
   durasi    String?              // mis. "3 bulan"
   format    String?              // "Online" | "Hybrid" | "Onsite"
