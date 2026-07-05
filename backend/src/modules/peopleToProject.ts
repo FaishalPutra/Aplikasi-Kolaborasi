@@ -376,6 +376,53 @@ router.get('/projects/:id/pendaftar', wajibLogin, async (req: AuthedRequest, res
   return res.json(out);
 });
 
+// Lihat profil lengkap satu pendaftar (khusus pembuat kegiatan) — dibuka dari Kelola Proyek
+router.get('/pendaftaran/:id/profil', wajibLogin, async (req: AuthedRequest, res) => {
+  const pendaftaran = await prisma.pendaftaranProject.findUnique({
+    where: { id: req.params.id },
+    include: {
+      project: { include: { roles: true } },
+      mahasiswa: { select: { nama: true, institusi: true, jurusan: true, angkatan: true, bio: true } },
+      role: true,
+    },
+  });
+  if (!pendaftaran) return res.status(404).json({ error: 'Pendaftaran tidak ditemukan' });
+  if (pendaftaran.project.pembuatId !== req.mahasiswaId) {
+    return res.status(403).json({ error: 'Hanya pembuat kegiatan yang dapat melihat profil pendaftar' });
+  }
+
+  const profil = await prisma.profil.findUnique({ where: { mahasiswaId: pendaftaran.mahasiswaId } });
+  const profilMhs = await ambilProfil(pendaftaran.mahasiswaId);
+  const affinity = profilMhs
+    ? (() => {
+        const hasil = hitungAffinity(profilMhs, toProjectInput(pendaftaran.project));
+        return {
+          skorPersen: Math.round(hasil.affinityScore * 1000) / 10,
+          badge: badge(hasil.affinityScore),
+          breakdown: hasil.breakdown,
+        };
+      })()
+    : null;
+
+  return res.json({
+    mahasiswaId: pendaftaran.mahasiswaId,
+    nama: pendaftaran.mahasiswa.nama,
+    institusi: pendaftaran.mahasiswa.institusi,
+    jurusan: pendaftaran.mahasiswa.jurusan,
+    angkatan: pendaftaran.mahasiswa.angkatan,
+    bio: pendaftaran.mahasiswa.bio,
+    role: pendaftaran.role.namaRole,
+    status: pendaftaran.status,
+    skill: profil?.skill ?? [],
+    pengalaman: profil?.pengalaman ?? null,
+    minatTag: profil?.minatTag ?? [],
+    gayaKerja: profil?.gayaKerja ?? null,
+    preferensiPeran: profil?.preferensiPeran ?? null,
+    ketersediaanWaktu: profil?.ketersediaanWaktu ?? [],
+    affinity,
+  });
+});
+
 // UC11 Memproses pendaftaran (terima/tolak) — hanya pembuat kegiatan
 router.patch('/pendaftaran/:id', wajibLogin, async (req: AuthedRequest, res) => {
   const { keputusan } = req.body ?? {}; // "ACCEPTED" | "REJECTED"
