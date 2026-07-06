@@ -10,3 +10,4 @@ mobile/.flutter-plugins*
 .idea/
 .vscode/
 .DS_Store
+.claude/

@@ -1,13 +1,39 @@
 import 'package:flutter/material.dart';
+import 'package:showcaseview/showcaseview.dart';
 import '../api.dart';
+import '../design_system.dart';
 
 // Modul Team Formation (Faishal) — UC21-UC2x, Algoritma IV.1-IV.3 (Bab4_Algoritma_Affinity_Matching_Final).
+// Desain mengikuti design system bersama (lihat design_system.dart).
 
-const _biru = Color(0xFF2563EB);
-const _navy = Color(0xFF0F172A);
-const _abu = Color(0xFF64748B);
-const _hijau = Color(0xFF16A34A);
-const _amber = Color(0xFFD97706);
+const _biru = DS.active;
+const _navy = DS.primaryText;
+const _abu = DS.secondaryText;
+const _hijau = DS.success;
+const _amber = DS.warning;
+
+// Dipakai tur onboarding (lihat main.dart) — target elemen statis yang selalu ada.
+final GlobalKey tourTimToggleKey = GlobalKey();
+
+// Dekorasi input konsisten dengan LabeledField (lihat auth.dart) — dipakai semua TextField
+// di modul ini supaya tidak jatuh ke garis bawah default Material yang terlalu tebal/kasar.
+InputDecoration _kotakInput(String hint, {Widget? prefixIcon, bool isDense = false}) => InputDecoration(
+      hintText: hint,
+      hintStyle: const TextStyle(color: Color(0xFF9AA5B8)),
+      prefixIcon: prefixIcon,
+      filled: true,
+      fillColor: Colors.white,
+      isDense: isDense,
+      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: isDense ? 12 : 16),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(20),
+        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(20),
+        borderSide: const BorderSide(color: _biru, width: 1.5),
+      ),
+    );
 
 const _domainRole = [
   'Programmer', 'Backend Developer', 'Frontend Developer', 'Mobile Developer',
@@ -58,20 +84,35 @@ class _EmptyState extends StatelessWidget {
   final VoidCallback? onTombol;
   const _EmptyState({required this.icon, required this.judul, required this.subjudul, this.tombol, this.onTombol});
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 60, horizontal: 24),
-        child: Column(
-          children: [
-            CircleAvatar(radius: 34, backgroundColor: const Color(0xFFEFF3FB), child: Icon(icon, color: _biru, size: 30)),
-            const SizedBox(height: 16),
-            Text(judul, style: const TextStyle(color: _navy, fontSize: 16, fontWeight: FontWeight.w700), textAlign: TextAlign.center),
-            const SizedBox(height: 6),
-            Text(subjudul, style: const TextStyle(color: _abu, fontSize: 13), textAlign: TextAlign.center),
-            if (tombol != null) ...[
-              const SizedBox(height: 16),
-              FilledButton(onPressed: onTombol, child: Text(tombol!)),
-            ],
-          ],
+  Widget build(BuildContext context) => Align(
+        // topCenter (bukan Center biasa) supaya kotak selalu rapi di bagian atas &
+        // rata tengah horizontal, konsisten dengan modul People-to-Project/People-to-People,
+        // apa pun tinggi ruang yang diberikan parent (Expanded/ListView/dll).
+        alignment: Alignment.topCenter,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 16),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF6F8FB),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFFCBD5E1)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircleAvatar(radius: 32, backgroundColor: const Color(0xFFEFF3FB), child: Icon(icon, color: _biru, size: 30)),
+                const SizedBox(height: 14),
+                Text(judul, style: const TextStyle(color: _navy, fontSize: 16, fontWeight: FontWeight.w700), textAlign: TextAlign.center),
+                const SizedBox(height: 8),
+                Text(subjudul, style: const TextStyle(color: _abu, fontSize: 13, height: 1.4), textAlign: TextAlign.center),
+                if (tombol != null) ...[
+                  const SizedBox(height: 16),
+                  FilledButton(onPressed: onTombol, child: Text(tombol!)),
+                ],
+              ],
+            ),
+          ),
         ),
       );
 }
@@ -161,7 +202,7 @@ class _TeamFormationPageState extends State<TeamFormationPage> {
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
         child: Container(
           padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(color: const Color(0xFFEFF3FB), borderRadius: BorderRadius.circular(14)),
+          decoration: BoxDecoration(color: const Color(0xFFEFF3FB), borderRadius: BorderRadius.circular(20)),
           child: Row(
             children: [
               _toggleItem('Lomba', 0),
@@ -173,10 +214,11 @@ class _TeamFormationPageState extends State<TeamFormationPage> {
 
   Widget _toggleItem(String label, int i) => Expanded(
         child: GestureDetector(
-          onTap: () {
-            setState(() => _tab = i);
-            if (i == 1) _timSayaKey.currentState?._muat();
-          },
+          // IndexedStack + AutomaticKeepAliveClientMixin di _TimSayaTab sudah menjaga
+          // datanya tetap ada saat berpindah tab — tidak perlu paksa reload di sini
+          // (itu yang bikin kedip/loading sekilas tiap pindah). Refresh manual masih
+          // bisa lewat pull-to-refresh di dalam tab masing-masing.
+          onTap: () => setState(() => _tab = i),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
             padding: const EdgeInsets.symmetric(vertical: 10),
@@ -197,7 +239,12 @@ class _TeamFormationPageState extends State<TeamFormationPage> {
         body: SafeArea(
           child: Column(
             children: [
-              _toggle(),
+              Showcase(
+                key: tourTimToggleKey,
+                title: 'Team Formation',
+                description: 'Cari lomba untuk diikuti, atau kelola tim yang sudah kamu buat/gabung di sini.',
+                child: _toggle(),
+              ),
               Expanded(
                 child: _loading
                     ? const Center(child: CircularProgressIndicator())
@@ -289,7 +336,7 @@ class _LombaTabState extends State<_LombaTab> with AutomaticKeepAliveClientMixin
                       filled: true,
                       fillColor: const Color(0xFFF1F5F9),
                       contentPadding: const EdgeInsets.symmetric(vertical: 0),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
                     ),
                   ),
                 ),
@@ -435,7 +482,7 @@ class _TimSayaTabState extends State<_TimSayaTab> with AutomaticKeepAliveClientM
   Widget _subToggle() => Container(
         margin: const EdgeInsets.fromLTRB(14, 12, 14, 4),
         padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(color: const Color(0xFFEFF3FB), borderRadius: BorderRadius.circular(14)),
+        decoration: BoxDecoration(color: const Color(0xFFEFF3FB), borderRadius: BorderRadius.circular(20)),
         child: Row(
           children: [
             _subToggleItem('Dibuat olehku (${_dibuat.length})', 0),
@@ -844,7 +891,7 @@ class _BuatLombaPageState extends State<BuatLombaPage> {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(color: const Color(0xFFE2E8F0)),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
@@ -880,7 +927,7 @@ class _BuatLombaPageState extends State<BuatLombaPage> {
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: const Color(0xFFEFF3FB),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(20),
               ),
               child: const Text(
                 '💡 Usulanmu akan ditinjau dan ditambahkan ke daftar lomba jika disetujui.',
@@ -890,12 +937,12 @@ class _BuatLombaPageState extends State<BuatLombaPage> {
             _card(children: [
               _label('Nama Lomba'),
               const SizedBox(height: 8),
-              TextField(controller: _judul, decoration: const InputDecoration(hintText: 'mis. Hackathon Nasional 2026')),
+              TextField(controller: _judul, decoration: _kotakInput('mis. Hackathon Nasional 2026')),
             ]),
             _card(children: [
               _label('Deskripsi'),
               const SizedBox(height: 8),
-              TextField(controller: _deskripsi, maxLines: 4, decoration: const InputDecoration(hintText: 'Ceritakan tentang lomba ini')),
+              TextField(controller: _deskripsi, maxLines: 4, decoration: _kotakInput('Ceritakan tentang lomba ini')),
               const SizedBox(height: 16),
               _label('Kategori'),
               const SizedBox(height: 8),
@@ -921,7 +968,7 @@ class _BuatLombaPageState extends State<BuatLombaPage> {
             _card(children: [
               _label('Penyelenggara'),
               const SizedBox(height: 8),
-              TextField(controller: _penyelenggara, decoration: const InputDecoration(hintText: 'mis. Kemendikbudristek')),
+              TextField(controller: _penyelenggara, decoration: _kotakInput('mis. Kemendikbudristek')),
               const SizedBox(height: 16),
               _label('Cakupan'),
               const SizedBox(height: 8),
@@ -962,7 +1009,7 @@ class _BuatLombaPageState extends State<BuatLombaPage> {
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       _label('Hadiah'),
                       const SizedBox(height: 8),
-                      TextField(controller: _hadiah, decoration: const InputDecoration(hintText: 'Rp30 juta')),
+                      TextField(controller: _hadiah, decoration: _kotakInput('Rp30 juta')),
                     ]),
                   ),
                 ],
@@ -977,7 +1024,7 @@ class _BuatLombaPageState extends State<BuatLombaPage> {
                     child: TextField(
                       controller: _minAnggota,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(hintText: 'Min'),
+                      decoration: _kotakInput('Min'),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -985,7 +1032,7 @@ class _BuatLombaPageState extends State<BuatLombaPage> {
                     child: TextField(
                       controller: _maxAnggota,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(hintText: 'Max'),
+                      decoration: _kotakInput('Max'),
                     ),
                   ),
                 ],
@@ -999,7 +1046,7 @@ class _BuatLombaPageState extends State<BuatLombaPage> {
               }),
               if (_jenisBiaya == 'BERBAYAR') ...[
                 const SizedBox(height: 12),
-                TextField(controller: _nominalBiaya, decoration: const InputDecoration(hintText: 'mis. Rp50.000/tim')),
+                TextField(controller: _nominalBiaya, decoration: _kotakInput('mis. Rp50.000/tim')),
               ],
             ]),
             _card(children: [
@@ -1007,26 +1054,19 @@ class _BuatLombaPageState extends State<BuatLombaPage> {
               const SizedBox(height: 8),
               TextField(
                 controller: _kontakInstagram,
-                decoration: const InputDecoration(
-                  prefixIcon: Icon(Icons.camera_alt_rounded, color: Color(0xFFE1306C)),
-                  hintText: '@username Instagram',
-                ),
+                decoration: _kotakInput('@username Instagram',
+                    prefixIcon: const Icon(Icons.camera_alt_rounded, color: Color(0xFFE1306C))),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: _kontakWebsite,
-                decoration: const InputDecoration(
-                  prefixIcon: Icon(Icons.language_rounded, color: _biru),
-                  hintText: 'Website resmi',
-                ),
+                decoration: _kotakInput('Website resmi', prefixIcon: const Icon(Icons.language_rounded, color: _biru)),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: _kontakNarahubung,
-                decoration: const InputDecoration(
-                  prefixIcon: Icon(Icons.phone_rounded, color: _hijau),
-                  hintText: 'Nama & nomor narahubung',
-                ),
+                decoration: _kotakInput('Nama & nomor narahubung',
+                    prefixIcon: const Icon(Icons.phone_rounded, color: _hijau)),
               ),
             ]),
           ],
@@ -1153,7 +1193,7 @@ class _DetailLombaPageState extends State<DetailLombaPage> {
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: const Color(0xFFE2E8F0)),
                 ),
                 child: Column(
@@ -1207,7 +1247,7 @@ class _DetailLombaPageState extends State<DetailLombaPage> {
     final bg = accentBg ?? (accentColor != null ? accentColor.withOpacity(0.12) : const Color(0xFFF8FAFC));
     return Container(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1464,7 +1504,7 @@ class _BuatLobiPageState extends State<BuatLobiPage> {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(color: const Color(0xFFE2E8F0)),
         ),
         child: child,
@@ -1514,10 +1554,10 @@ class _BuatLobiPageState extends State<BuatLobiPage> {
                     ),
                   ),
                 _labelKecil('NAMA LOBI *'),
-                TextField(controller: _judul, decoration: const InputDecoration(hintText: 'mis. Tim Elang Data')),
+                TextField(controller: _judul, decoration: _kotakInput('mis. Tim Elang Data')),
                 const SizedBox(height: 16),
                 _labelKecil('DESKRIPSI TIM'),
-                TextField(controller: _deskripsi, maxLines: 3, decoration: const InputDecoration(hintText: 'Visi/strategi tim untuk lomba ini')),
+                TextField(controller: _deskripsi, maxLines: 3, decoration: _kotakInput('Visi/strategi tim untuk lomba ini')),
                 const SizedBox(height: 16),
                 _labelKecil('KAPASITAS MAKSIMAL'),
                 Wrap(
@@ -1542,12 +1582,12 @@ class _BuatLobiPageState extends State<BuatLobiPage> {
                 _labelKecil('PERAN YANG DICARI'),
                 InkWell(
                   onTap: _pilihPeran,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(20),
                   child: Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(20),
                       border: Border.all(color: const Color(0xFFE2E8F0)),
                     ),
                     child: Row(children: [
@@ -1691,12 +1731,13 @@ Widget _metrikTim(String label, double nilai, String? keterangan, {bool tampilka
       if (tampilkanBar) ...[
         const SizedBox(height: 6),
         ClipRRect(
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(999),
           child: LinearProgressIndicator(
             value: nilai.clamp(0, 1).toDouble(),
             backgroundColor: const Color(0xFFE7ECF5),
             color: _warnaSkor(persen),
             minHeight: 6,
+            borderRadius: BorderRadius.circular(999),
           ),
         ),
       ],
@@ -1908,7 +1949,7 @@ class _EditTimPageState extends State<EditTimPage> {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(color: const Color(0xFFE2E8F0)),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
@@ -1966,7 +2007,7 @@ class _EditTimPageState extends State<EditTimPage> {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: const Color(0xFFFEF2F2),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(20),
             ),
             child: const Row(children: [
               Icon(Icons.lock_outline, color: Colors.red, size: 18),
@@ -1984,7 +2025,7 @@ class _EditTimPageState extends State<EditTimPage> {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
             color: const Color(0xFFEFF3FB),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(20),
           ),
           child: Row(children: [
             const Icon(Icons.emoji_events, color: _biru, size: 20),
@@ -2001,7 +2042,7 @@ class _EditTimPageState extends State<EditTimPage> {
           TextField(
             controller: _judulCtrl,
             readOnly: isFinal,
-            decoration: const InputDecoration(hintText: 'Nama tim'),
+            decoration: _kotakInput('Nama tim'),
           ),
           const SizedBox(height: 16),
           _label('Deskripsi Tim'),
@@ -2010,7 +2051,7 @@ class _EditTimPageState extends State<EditTimPage> {
             controller: _deskripsiCtrl,
             maxLines: 4,
             readOnly: isFinal,
-            decoration: const InputDecoration(hintText: 'Deskripsi tim'),
+            decoration: _kotakInput('Deskripsi tim'),
           ),
         ]),
         _label('Anggota Tim'),
@@ -2044,10 +2085,15 @@ class _EditTimPageState extends State<EditTimPage> {
                         DropdownButtonFormField<String>(
                           initialValue: roles.any((r) => r['id'] == a['roleId']) ? a['roleId'] as String : null,
                           isExpanded: true,
-                          decoration: const InputDecoration(
+                          decoration: InputDecoration(
                             isDense: true,
-                            border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            filled: true,
+                            fillColor: Colors.white,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                            ),
                           ),
                           items: roles
                               .map((r) => DropdownMenuItem(value: r['id'] as String, child: Text(r['namaRole'] ?? '-')))
@@ -2083,12 +2129,12 @@ class _EditTimPageState extends State<EditTimPage> {
           const SizedBox(height: 8),
           InkWell(
             onTap: nonaktif ? null : _pilihRoleTerbuka,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(20),
             child: Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: const Color(0xFFE2E8F0)),
               ),
               child: Row(children: [
@@ -2526,6 +2572,7 @@ class _DetailLobiPageState extends State<DetailLobiPage> {
                                           backgroundColor: const Color(0xFFE7ECF5),
                                           color: _biru,
                                           minHeight: 6,
+                                          borderRadius: BorderRadius.circular(999),
                                         ),
                                       ),
                                       const SizedBox(width: 8),
@@ -2651,7 +2698,7 @@ class _DetailLobiPageState extends State<DetailLobiPage> {
                                   constraints: BoxConstraints(maxWidth: MediaQuery.of(ctx).size.width * 0.72),
                                   decoration: BoxDecoration(
                                     color: milikSendiri ? _biru : const Color(0xFFEFF3FB),
-                                    borderRadius: BorderRadius.circular(12),
+                                    borderRadius: BorderRadius.circular(20),
                                   ),
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -2675,7 +2722,7 @@ class _DetailLobiPageState extends State<DetailLobiPage> {
                         Expanded(
                           child: TextField(
                             controller: _pesanCtrl,
-                            decoration: const InputDecoration(hintText: 'Tulis pesan...', isDense: true),
+                            decoration: _kotakInput('Tulis pesan...', isDense: true),
                             onSubmitted: (_) async {
                               await _kirimPesan();
                               setModalState(() {});
@@ -2817,7 +2864,7 @@ class _DetailLobiPageState extends State<DetailLobiPage> {
                     Container(
                       width: 44,
                       height: 44,
-                      decoration: BoxDecoration(color: const Color(0xFFEFF3FB), borderRadius: BorderRadius.circular(12)),
+                      decoration: BoxDecoration(color: const Color(0xFFEFF3FB), borderRadius: BorderRadius.circular(20)),
                       child: const Icon(Icons.laptop_mac, color: _biru, size: 22),
                     ),
                     const SizedBox(height: 10),
@@ -3186,6 +3233,7 @@ class _KelolaLobiPageState extends State<KelolaLobiPage> {
                     backgroundColor: const Color(0xFFE7ECF5),
                     color: _biru,
                     minHeight: 6,
+                    borderRadius: BorderRadius.circular(999),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -3275,7 +3323,10 @@ class _KelolaLobiPageState extends State<KelolaLobiPage> {
 // ------------------------------------------------------------------------------------------------
 
 class TreoQuestionnairePage extends StatefulWidget {
-  const TreoQuestionnairePage({super.key});
+  // Kalau diisi, tampilkan tombol "Lewati" di AppBar (dipakai alur onboarding
+  // setelah daftar akun — mengisi TREO jadi opsional, bisa dilanjutkan nanti).
+  final VoidCallback? onLewati;
+  const TreoQuestionnairePage({super.key, this.onLewati});
   @override
   State<TreoQuestionnairePage> createState() => _TreoQuestionnairePageState();
 }
@@ -3357,7 +3408,17 @@ class _TreoQuestionnairePageState extends State<TreoQuestionnairePage> {
   Widget build(BuildContext context) {
     if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
     return Scaffold(
-      appBar: AppBar(title: const Text('Kuesioner TREO')),
+      appBar: AppBar(
+        title: const Text('Kuesioner TREO'),
+        actions: widget.onLewati == null
+            ? null
+            : [
+                TextButton(
+                  onPressed: widget.onLewati,
+                  child: const Text('Lewati', style: TextStyle(color: _abu, fontWeight: FontWeight.bold)),
+                ),
+              ],
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
         children: [

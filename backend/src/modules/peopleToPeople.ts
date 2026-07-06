@@ -119,6 +119,17 @@ router.get('/feed', wajibLogin, async (req: AuthedRequest, res) => {
     if (gayaFilter && k.gayaKerja !== gayaFilter) continue;
     if (waktuFilter.length && !k.ketersediaanWaktu.some((w) => waktuFilter.includes(w))) continue;
 
+    // status tombol (Simpan/Tertarik/Hubungkan) — supaya tetap benar walau feed di-refresh
+    const sudahDisimpan = !!(await prisma.savedProfile.findUnique({
+      where: { ownerId_targetId: { ownerId: me, targetId: k.mahasiswaId } },
+    }));
+    const sudahTertarik = !!(await prisma.expressInterest.findUnique({
+      where: { senderId_receiverId: { senderId: me, receiverId: k.mahasiswaId } },
+    }));
+    const permintaan = await prisma.connectRequest.findUnique({
+      where: { senderId_receiverId: { senderId: me, receiverId: k.mahasiswaId } },
+    });
+
     hasil.push({
       mahasiswaId: k.mahasiswaId,
       nama: k.mahasiswa.nama,
@@ -129,6 +140,9 @@ router.get('/feed', wajibLogin, async (req: AuthedRequest, res) => {
       persen: skor.persen,
       label: skor.label,
       alasan: alasanCocok(skor.breakdown, meOrang, toProfilOrang(k)),
+      sudahDisimpan,
+      sudahTertarik,
+      sudahKirimPermintaan: permintaan?.status === 'PENDING',
     });
   }
 
@@ -177,6 +191,9 @@ router.get('/profil/:id', wajibLogin, async (req: AuthedRequest, res) => {
   const sudahTertarik = !!(await prisma.expressInterest.findUnique({
     where: { senderId_receiverId: { senderId: me, receiverId: targetId } },
   }));
+  const permintaan = await prisma.connectRequest.findUnique({
+    where: { senderId_receiverId: { senderId: me, receiverId: targetId } },
+  });
 
   return res.json({
     mahasiswaId: targetId,
@@ -195,12 +212,13 @@ router.get('/profil/:id', wajibLogin, async (req: AuthedRequest, res) => {
     terhubung,
     sudahDisimpan,
     sudahTertarik,
+    sudahKirimPermintaan: permintaan?.status === 'PENDING',
     // kontak hanya dibuka jika sudah terhubung (mockup: "terbuka setelah terhubung")
     kontak: terhubung ? target.mahasiswa.kontak ?? '' : null,
   });
 });
 
-// ---------- UC09: simpan profil ----------
+// ---------- UC09: simpan profil (+ undo) ----------
 router.post('/saved', wajibLogin, async (req: AuthedRequest, res) => {
   const { targetId } = req.body ?? {};
   if (!targetId) return res.status(400).json({ error: 'targetId wajib' });
@@ -210,6 +228,15 @@ router.post('/saved', wajibLogin, async (req: AuthedRequest, res) => {
     update: {},
   });
   return res.json({ ok: true });
+});
+
+router.delete('/saved/:targetId', wajibLogin, async (req: AuthedRequest, res) => {
+  await prisma.savedProfile
+    .delete({
+      where: { ownerId_targetId: { ownerId: req.mahasiswaId!, targetId: req.params.targetId } },
+    })
+    .catch(() => null); // sudah tidak ada pun dianggap berhasil (idempotent)
+  return res.json({ ok: true, pesan: 'Batal disimpan' });
 });
 
 router.get('/saved', wajibLogin, async (req: AuthedRequest, res) => {
@@ -263,6 +290,17 @@ router.post('/interest', wajibLogin, async (req: AuthedRequest, res) => {
   return res.json({ ok: true, status: 'PENDING', pesan: 'Kamu menandai tertarik' });
 });
 
+// batalkan tanda tertarik (undo). Kalau sudah keburu terhubung (saling tertarik),
+// koneksi yang sudah terbentuk TIDAK ikut dibatalkan — cuma tanda tertariknya saja.
+router.delete('/interest/:receiverId', wajibLogin, async (req: AuthedRequest, res) => {
+  await prisma.expressInterest
+    .delete({
+      where: { senderId_receiverId: { senderId: req.mahasiswaId!, receiverId: req.params.receiverId } },
+    })
+    .catch(() => null);
+  return res.json({ ok: true, pesan: 'Batal menandai tertarik' });
+});
+
 // ---------- Ekstra: berapa orang yang tertarik ke saya (identitas dirahasiakan
 // sampai saling tertarik — bukan daftar, cuma jumlah) ----------
 router.get('/menyukai-saya', wajibLogin, async (req: AuthedRequest, res) => {
@@ -304,6 +342,19 @@ router.post('/connect', wajibLogin, async (req: AuthedRequest, res) => {
     update: { status: 'PENDING' },
   });
   return res.json({ status: 'PENDING', pesan: 'Permintaan koneksi dikirim' });
+});
+
+// batalkan permintaan koneksi yang masih PENDING (undo). Kalau sudah CONNECTED,
+// tidak bisa dibatalkan lewat sini — koneksi yang sudah jadi tetap ada.
+router.delete('/connect/:receiverId', wajibLogin, async (req: AuthedRequest, res) => {
+  const me = req.mahasiswaId!;
+  const cr = await prisma.connectRequest.findUnique({
+    where: { senderId_receiverId: { senderId: me, receiverId: req.params.receiverId } },
+  });
+  if (cr && cr.status === 'PENDING') {
+    await prisma.connectRequest.delete({ where: { id: cr.id } });
+  }
+  return res.json({ ok: true, pesan: 'Permintaan koneksi dibatalkan' });
 });
 
 // daftar permintaan koneksi masuk (tab "Permintaan")

@@ -1,15 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:showcaseview/showcaseview.dart';
 import '../api.dart';
+import '../design_system.dart';
 
 // Modul People-to-People (Ahmad). Tersambung ke backend /api/people-to-people.
-// Desain mengikuti mockup Figma.
+// Desain mengikuti design system bersama (lihat design_system.dart).
 
-const _biru = Color(0xFF2563EB);
-const _navy = Color(0xFF0F172A);
-const _abu = Color(0xFF64748B);
-const _hijau = Color(0xFF16A34A);
-const _pink = Color(0xFFE11D48); // status "Tertarik" — perpaduan merah & pink
-const _pinkMuda = Color(0xFFFFF1F2);
+const _biru = DS.active;
+const _navy = DS.primaryText;
+const _abu = DS.secondaryText;
+const _hijau = DS.success;
+const _pink = DS.pink; // status "Tertarik" — perpaduan merah & pink
+const _pinkMuda = DS.pinkMuda;
+
+// Dipakai tur onboarding (lihat main.dart) — target elemen statis yang selalu ada.
+final GlobalKey tourP2PPToggleKey = GlobalKey();
+final GlobalKey tourP2PPFilterKey = GlobalKey();
 
 // mahasiswaId koneksi yang sudah pernah dilihat di sesi berjalan (reset kalau app di-restart)
 final Set<String> _koneksiTerlihat = <String>{};
@@ -39,19 +45,30 @@ String _inisial(String nama) {
 }
 
 // ---------- WIDGET UMUM ----------
-Color _labelBg(String b) => (b == 'Sangat Cocok') ? const Color(0xFFDCFCE7) : const Color(0xFFEEF2F7);
-Color _labelFg(String b) => (b == 'Sangat Cocok') ? _hijau : _abu;
+// Warna bar RINCIAN KECOCOKAN mengikuti tingkat bobot atribut itu di AffinityEngine
+// (bobot makin besar -> makin gelap/pekat, bobot kecil -> makin pudar) — supaya
+// atribut yang paling berpengaruh terlihat paling menonjol.
+Color _warnaBobot(double bobot, double minBobot, double maxBobot) {
+  final t = (maxBobot == minBobot) ? 1.0 : ((bobot - minBobot) / (maxBobot - minBobot)).clamp(0.0, 1.0);
+  return Color.lerp(const Color(0xFFB6C2D9), _biru, t)!;
+}
+
+Color _labelBg(String b) => (b == 'Sangat Cocok')
+    ? const Color(0xFFDCFCE7)
+    : (b == 'Cocok' ? const Color(0xFFFEF3C7) : DS.chipInactiveBg);
+Color _labelFg(String b) =>
+    (b == 'Sangat Cocok') ? _hijau : (b == 'Cocok' ? DS.warning : _navy);
 
 Widget _badge(String teks) => Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(color: _labelBg(teks), borderRadius: BorderRadius.circular(20)),
-      child: Text(teks, style: TextStyle(color: _labelFg(teks), fontWeight: FontWeight.bold, fontSize: 12)),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(color: _labelBg(teks), borderRadius: BorderRadius.circular(999)),
+      child: Text(teks, style: TextStyle(color: _labelFg(teks), fontWeight: FontWeight.w700, fontSize: 12)),
     );
 
 Widget _avatar(String nama, String key, {double size = 52}) => Container(
       width: size,
       height: size,
-      decoration: BoxDecoration(color: _avatarColor(key), borderRadius: BorderRadius.circular(size * 0.3)),
+      decoration: BoxDecoration(color: _avatarColor(key), shape: BoxShape.circle),
       alignment: Alignment.center,
       child: Text(_inisial(nama),
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: size * 0.34)),
@@ -64,25 +81,14 @@ class _Donut extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final warna = persen >= 60 ? _hijau : _abu;
-    return SizedBox(
-      width: size,
-      height: size,
-      child: Stack(alignment: Alignment.center, children: [
-        SizedBox(
-          width: size,
-          height: size,
-          child: CircularProgressIndicator(
-            value: persen / 100,
-            strokeWidth: 9,
-            backgroundColor: const Color(0xFFE5E7EB),
-            valueColor: AlwaysStoppedAnimation(warna),
-          ),
-        ),
-        Column(mainAxisSize: MainAxisSize.min, children: [
-          Text('${persen.round()}%',
-              style: TextStyle(fontSize: size * 0.24, fontWeight: FontWeight.bold, color: _navy)),
-          Text('COCOK', style: TextStyle(fontSize: size * 0.1, color: _abu, letterSpacing: 1)),
-        ]),
+    return DsRadialGauge(
+      percent: persen,
+      size: size,
+      filledColor: warna,
+      center: Column(mainAxisSize: MainAxisSize.min, children: [
+        Text('${persen.round()}%',
+            style: TextStyle(fontSize: size * 0.2, fontWeight: FontWeight.bold, color: _navy)),
+        Text('COCOK', style: TextStyle(fontSize: size * 0.09, color: _abu, letterSpacing: 1)),
       ]),
     );
   }
@@ -93,9 +99,9 @@ Widget _chipList(List<String> items) => Wrap(
       runSpacing: 8,
       children: items
           .map((s) => Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(color: const Color(0xFFEEF2FF), borderRadius: BorderRadius.circular(20)),
-                child: Text(s, style: const TextStyle(color: _navy, fontSize: 13)),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                decoration: BoxDecoration(color: DS.chipInactiveBg, borderRadius: BorderRadius.circular(999)),
+                child: Text(s, style: const TextStyle(color: _navy, fontSize: 13, fontWeight: FontWeight.w500)),
               ))
           .toList(),
     );
@@ -160,17 +166,29 @@ class _PeopleToPeoplePageState extends State<PeopleToPeoplePage> {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Column(children: [
             const SizedBox(height: 8),
-            _toggleAtas(),
+            Showcase(
+              key: tourP2PPToggleKey,
+              title: 'Orang',
+              description: 'Lihat rekomendasi partner kolaborasi yang cocok, atau kelola koneksi & permintaanmu di sini.',
+              child: _toggleAtas(),
+            ),
             const SizedBox(height: 16),
             Expanded(
-              child: _tab == 0
-                  ? const _RekomendasiTab()
-                  : _KoneksiTab(
-                      onJumlahBerubah: (p, k) => setState(() {
-                        _jumlahPermintaan = p;
-                        _jumlahKoneksiBaru = k;
-                      }),
-                    ),
+              // IndexedStack (bukan ternary) — kedua tab tetap hidup di balik layar
+              // saat berpindah, jadi tidak ada kedipan/loading ulang & posisi
+              // swipe/scroll tidak hilang. Konsisten dengan modul lain.
+              child: IndexedStack(
+                index: _tab,
+                children: [
+                  const _RekomendasiTab(),
+                  _KoneksiTab(
+                    onJumlahBerubah: (p, k) => setState(() {
+                      _jumlahPermintaan = p;
+                      _jumlahKoneksiBaru = k;
+                    }),
+                  ),
+                ],
+              ),
             ),
           ]),
         ),
@@ -251,6 +269,7 @@ class _RekomendasiTabState extends State<_RekomendasiTab> {
   int _index = 0;
   bool _loading = true;
   String? _pesan;
+  bool _profilBelumLengkap = false;
   List<dynamic> _feed = [];
 
   // Filter lapis-2 (atribut)
@@ -290,11 +309,13 @@ class _RekomendasiTabState extends State<_RekomendasiTab> {
       final qs = q.entries.map((e) => '${e.key}=${Uri.encodeQueryComponent(e.value)}').join('&');
       final res = await apiGet('/people-to-people/feed?$qs');
       final feed = (res is Map && res['feed'] is List) ? res['feed'] as List : [];
+      final error = res is Map ? res['error']?.toString() : null;
       setState(() {
         _feed = feed;
         _index = 0;
+        _profilBelumLengkap = error != null;
         if (feed.isEmpty) {
-          _pesan = (res is Map ? res['error']?.toString() : null) ?? 'Belum ada rekomendasi.';
+          _pesan = error ?? 'Belum ada rekomendasi.';
         }
       });
     } catch (_) {
@@ -409,7 +430,7 @@ class _RekomendasiTabState extends State<_RekomendasiTab> {
                   style: FilledButton.styleFrom(
                       backgroundColor: _biru,
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24))),
                   child: const Text('Terapkan', style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
               ),
@@ -423,6 +444,9 @@ class _RekomendasiTabState extends State<_RekomendasiTab> {
   @override
   Widget build(BuildContext context) {
     final habis = _index >= _feed.length;
+    // Kalau profil belum lengkap, sembunyikan kontrol filter (percuma difilter,
+    // belum ada data) supaya tampilannya bersih & simetris seperti modul lain.
+    final tampilkanKontrol = !_profilBelumLengkap;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
         Expanded(
@@ -433,78 +457,80 @@ class _RekomendasiTabState extends State<_RekomendasiTab> {
                 style: const TextStyle(color: _abu)),
           ]),
         ),
-        Stack(clipBehavior: Clip.none, children: [
+        if (tampilkanKontrol) ...[
+          Stack(clipBehavior: Clip.none, children: [
+            Showcase(
+              key: tourP2PPFilterKey,
+              title: 'Filter Rekomendasi',
+              description: 'Atur rekomendasi berdasarkan skor kecocokan, minat, preferensi peran, gaya kerja, atau waktu luang.',
+              child: Container(
+                decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFE2E8F0))),
+                child: IconButton(onPressed: _bukaFilterSheet, icon: const Icon(Icons.tune, color: _biru)),
+              ),
+            ),
+            if (_jumlahFilterAktif > 0)
+              Positioned(
+                right: -2,
+                top: -2,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(color: Color(0xFFDC2626), shape: BoxShape.circle),
+                  constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                  child: Text('$_jumlahFilterAktif',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                ),
+              ),
+          ]),
+          const SizedBox(width: 8),
           Container(
             decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: const Color(0xFFE2E8F0))),
-            child: IconButton(onPressed: _bukaFilterSheet, icon: const Icon(Icons.tune, color: _biru)),
+            child: IconButton(onPressed: _muat, icon: const Icon(Icons.refresh, color: _biru)),
           ),
-          if (_jumlahFilterAktif > 0)
-            Positioned(
-              right: -2,
-              top: -2,
-              child: Container(
-                padding: const EdgeInsets.all(4),
-                decoration: const BoxDecoration(color: Color(0xFFDC2626), shape: BoxShape.circle),
-                constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
-                child: Text('$_jumlahFilterAktif',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
-              ),
-            ),
-        ]),
-        const SizedBox(width: 8),
-        Container(
-          decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE2E8F0))),
-          child: IconButton(onPressed: _muat, icon: const Icon(Icons.refresh, color: _biru)),
-        ),
+        ],
       ]),
-      const SizedBox(height: 14),
-      SizedBox(
-        height: 40,
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          itemCount: _filter.length,
-          separatorBuilder: (_, __) => const SizedBox(width: 8),
-          itemBuilder: (_, i) {
-            final aktif = i == _filterAktif;
-            return GestureDetector(
+      if (tampilkanKontrol) ...[
+        const SizedBox(height: 14),
+        SizedBox(
+          height: 40,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _filter.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (_, i) => DsChip(
+              label: _filter[i]['label']!,
+              aktif: i == _filterAktif,
               onTap: () {
                 setState(() => _filterAktif = i);
                 _muat();
               },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 18),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: aktif ? _biru : Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: aktif ? _biru : const Color(0xFFE2E8F0)),
-                ),
-                child: Text(_filter[i]['label']!,
-                    style: TextStyle(color: aktif ? Colors.white : _navy, fontWeight: FontWeight.w600)),
-              ),
-            );
-          },
+            ),
+          ),
         ),
-      ),
+      ],
       const SizedBox(height: 16),
       Expanded(
         child: _loading
             ? const Center(child: CircularProgressIndicator())
             : (_feed.isEmpty || habis)
-                ? _EmptyState(
-                    icon: Icons.auto_awesome,
-                    judul: _feed.isEmpty ? (_pesan ?? 'Belum ada rekomendasi') : 'Kamu sudah lihat semua',
-                    subtitle: 'Cek koneksi & profil tersimpan, atau ubah filter untuk lihat lagi.',
-                    tombol: 'Muat ulang',
-                    onTombol: _muat,
-                  )
+                ? ListView(children: [
+                    Padding(
+                      padding: const EdgeInsets.only(top: 40),
+                      child: _EmptyState(
+                        icon: Icons.auto_awesome,
+                        judul: _feed.isEmpty ? (_pesan ?? 'Belum ada rekomendasi') : 'Kamu sudah lihat semua',
+                        subtitle: 'Cek koneksi & profil tersimpan, atau ubah filter untuk lihat lagi.',
+                        tombol: 'Muat ulang',
+                        onTombol: _muat,
+                      ),
+                    ),
+                  ])
                 : _KartuRekomendasi(
                     // key beda per kandidat supaya status tombol (disimpan/tertarik) tidak
                     // ikut terbawa saat pindah ke kandidat berikutnya
@@ -527,8 +553,9 @@ class _KartuRekomendasi extends StatefulWidget {
 }
 
 class _KartuRekomendasiState extends State<_KartuRekomendasi> {
-  bool _disimpan = false;
-  bool _tertarik = false;
+  late bool _disimpan;
+  late bool _tertarik;
+  late bool _sudahHubungkan;
   bool _memuatSimpan = false;
   bool _memuatTertarik = false;
   bool _memuatHubungkan = false;
@@ -536,38 +563,79 @@ class _KartuRekomendasiState extends State<_KartuRekomendasi> {
   Map get item => widget.item;
   String get _id => item['mahasiswaId'].toString();
 
+  @override
+  void initState() {
+    super.initState();
+    // Baca status awal dari feed (bukan selalu mulai dari nol) — supaya benar
+    // walau kandidat yang sama muncul lagi setelah refresh.
+    _disimpan = item['sudahDisimpan'] == true;
+    _tertarik = item['sudahTertarik'] == true;
+    _sudahHubungkan = item['sudahKirimPermintaan'] == true;
+  }
+
+  // Dipanggil setelah kembali dari halaman detail — aksi Simpan/Tertarik/Hubungkan
+  // bisa saja dilakukan di sana, jadi status kartu ini perlu disamakan lagi.
+  Future<void> _sinkronStatus() async {
+    try {
+      final res = await apiGet('/people-to-people/profil/$_id');
+      if (mounted && res is Map) {
+        setState(() {
+          _disimpan = res['sudahDisimpan'] == true;
+          _tertarik = res['sudahTertarik'] == true;
+          _sudahHubungkan = res['sudahKirimPermintaan'] == true;
+        });
+      }
+    } catch (_) {
+      // biarkan status yang lama kalau gagal memuat
+    }
+  }
+
   Widget _kotakAksi(IconData icon, VoidCallback? onTap, {bool aktif = false, bool memuat = false}) => InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        customBorder: const CircleBorder(),
         child: Container(
-          width: 52,
+          width: 48,
           height: 48,
+          alignment: Alignment.center,
           decoration: BoxDecoration(
               color: aktif ? const Color(0xFFEEF2FF) : null,
-              borderRadius: BorderRadius.circular(12),
+              shape: BoxShape.circle,
               border: Border.all(color: aktif ? _biru : const Color(0xFFE2E8F0))),
           child: memuat
-              ? const Padding(
-                  padding: EdgeInsets.all(14),
-                  child: CircularProgressIndicator(strokeWidth: 2))
-              : Icon(icon, color: aktif ? _biru : _navy),
+              ? const SizedBox(
+                  width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+              : Icon(icon, size: 20, color: aktif ? _biru : _navy),
         ),
       );
 
-  // Mengirim aksi ke backend. Kalau hasilnya CONNECTED (saling tertarik / saling
-  // hubungkan yang sudah dibalas), langsung lanjut ke kandidat berikutnya.
-  Future<void> _post(String path, Map<String, dynamic> body, String sukses,
-      {required void Function(bool memuat) setMemuat, VoidCallback? onSukses, bool skipSetelahSukses = false}) async {
+  // Toggle: kalau belum aktif -> POST (aktifkan), kalau sudah aktif -> DELETE (undo).
+  // Kalau hasilnya CONNECTED (saling tertarik/hubungkan), langsung lanjut ke kandidat
+  // berikutnya karena hubungannya sudah final, tidak ada lagi yang bisa di-undo.
+  Future<void> _toggle({
+    required bool aktifSaatIni,
+    required String postPath,
+    required String deletePath,
+    required Map<String, dynamic> body,
+    required void Function(bool memuat) setMemuat,
+    required void Function(bool nilai) setAktif,
+  }) async {
     setState(() => setMemuat(true));
     try {
-      final res = await apiPost(path, body);
-      final pesan = res is Map && res['pesan'] != null ? res['pesan'].toString() : sukses;
-      if (mounted) _snack(context, pesan);
-      onSukses?.call();
-      final status = res is Map ? res['status']?.toString() : null;
-      if (skipSetelahSukses || status == 'CONNECTED') {
-        widget.onSkip();
-        return; // widget ini akan diganti kandidat berikutnya, tidak perlu setState lagi
+      if (aktifSaatIni) {
+        final res = await apiDelete(deletePath);
+        final pesan = res is Map && res['pesan'] != null ? res['pesan'].toString() : 'Dibatalkan';
+        if (mounted) _snack(context, pesan);
+        setState(() => setAktif(false));
+      } else {
+        final res = await apiPost(postPath, body);
+        final pesan = res is Map && res['pesan'] != null ? res['pesan'].toString() : 'Berhasil';
+        if (mounted) _snack(context, pesan);
+        setState(() => setAktif(true));
+        final status = res is Map ? res['status']?.toString() : null;
+        if (status == 'CONNECTED') {
+          widget.onSkip();
+          return; // widget ini akan diganti kandidat berikutnya, tidak perlu setState lagi
+        }
       }
     } catch (_) {
       if (mounted) _snack(context, 'Gagal terhubung ke server.');
@@ -644,8 +712,13 @@ class _KartuRekomendasiState extends State<_KartuRekomendasi> {
           const SizedBox(height: 6),
           Center(
             child: TextButton(
-              onPressed: () =>
-                  Navigator.of(context).push(MaterialPageRoute(builder: (_) => PartnerDetailPage(mahasiswaId: _id))),
+              onPressed: () async {
+                await Navigator.of(context)
+                    .push(MaterialPageRoute(builder: (_) => PartnerDetailPage(mahasiswaId: _id)));
+                // Aksi (Simpan/Tertarik/Hubungkan) mungkin dilakukan dari halaman detail —
+                // sinkronkan lagi status kartu ini begitu kembali, supaya tombolnya tidak ketinggalan.
+                _sinkronStatus();
+              },
               child: const Text('Lihat profil lengkap →', style: TextStyle(color: _biru, fontWeight: FontWeight.bold)),
             ),
           ),
@@ -653,25 +726,35 @@ class _KartuRekomendasiState extends State<_KartuRekomendasi> {
           Row(children: [
             _kotakAksi(
               _disimpan ? Icons.bookmark : Icons.bookmark_border,
-              (_disimpan || _memuatSimpan)
+              _memuatSimpan
                   ? null
-                  : () => _post('/people-to-people/saved', {'targetId': _id}, 'Profil disimpan',
-                      setMemuat: (v) => _memuatSimpan = v, onSukses: () => _disimpan = true),
+                  : () => _toggle(
+                      aktifSaatIni: _disimpan,
+                      postPath: '/people-to-people/saved',
+                      deletePath: '/people-to-people/saved/$_id',
+                      body: {'targetId': _id},
+                      setMemuat: (v) => _memuatSimpan = v,
+                      setAktif: (v) => _disimpan = v),
               aktif: _disimpan,
               memuat: _memuatSimpan,
             ),
             const SizedBox(width: 8),
             Expanded(
               child: OutlinedButton(
-                onPressed: (_tertarik || _memuatTertarik)
+                onPressed: _memuatTertarik
                     ? null
-                    : () => _post('/people-to-people/interest', {'receiverId': _id}, 'Kamu menandai tertarik',
-                        setMemuat: (v) => _memuatTertarik = v, onSukses: () => _tertarik = true),
+                    : () => _toggle(
+                        aktifSaatIni: _tertarik,
+                        postPath: '/people-to-people/interest',
+                        deletePath: '/people-to-people/interest/$_id',
+                        body: {'receiverId': _id},
+                        setMemuat: (v) => _memuatTertarik = v,
+                        setAktif: (v) => _tertarik = v),
                 style: OutlinedButton.styleFrom(
                     backgroundColor: _tertarik ? _pinkMuda : null,
                     padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 4),
                     side: BorderSide(color: _tertarik ? _pink : const Color(0xFFE2E8F0)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24))),
                 child: _memuatTertarik
                     ? const SizedBox(
                         width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
@@ -694,18 +777,35 @@ class _KartuRekomendasiState extends State<_KartuRekomendasi> {
               child: FilledButton(
                 onPressed: _memuatHubungkan
                     ? null
-                    : () => _post('/people-to-people/connect', {'receiverId': _id}, 'Permintaan koneksi dikirim',
-                        setMemuat: (v) => _memuatHubungkan = v, skipSetelahSukses: true),
+                    : () => _toggle(
+                        aktifSaatIni: _sudahHubungkan,
+                        postPath: '/people-to-people/connect',
+                        deletePath: '/people-to-people/connect/$_id',
+                        body: {'receiverId': _id},
+                        setMemuat: (v) => _memuatHubungkan = v,
+                        setAktif: (v) => _sudahHubungkan = v),
                 style: FilledButton.styleFrom(
-                    backgroundColor: _biru,
+                    backgroundColor: _sudahHubungkan ? const Color(0xFFEEF2FF) : _biru,
+                    disabledBackgroundColor: _sudahHubungkan ? const Color(0xFFEEF2FF) : null,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24))),
                 child: _memuatHubungkan
                     ? const SizedBox(
                         width: 18,
                         height: 18,
                         child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Text('Hubungkan', style: TextStyle(fontWeight: FontWeight.bold)),
+                    : FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          if (_sudahHubungkan) ...[
+                            const Icon(Icons.check_circle, size: 16, color: _biru),
+                            const SizedBox(width: 6),
+                          ],
+                          Text(_sudahHubungkan ? 'Terkirim' : 'Hubungkan',
+                              style: TextStyle(
+                                  color: _sudahHubungkan ? _biru : Colors.white, fontWeight: FontWeight.bold)),
+                        ]),
+                      ),
               ),
             ),
             const SizedBox(width: 8),
@@ -753,11 +853,13 @@ class _PartnerDetailPageState extends State<PartnerDetailPage> {
     });
   }
 
-  Future<void> _post(String path, Map<String, dynamic> body, String sukses) async {
+  // Toggle: kalau statusnya lagi aktif (sudah disimpan/tertarik/terkirim), tap lagi = undo (DELETE).
+  Future<void> _toggle(bool aktifSaatIni, String postPath, String deletePath, Map<String, dynamic> body) async {
     try {
-      final res = await apiPost(path, body);
-      final pesan = res is Map && res['pesan'] != null ? res['pesan'].toString() : sukses;
-      if (mounted) _snack(context, pesan);
+      final res = aktifSaatIni ? await apiDelete(deletePath) : await apiPost(postPath, body);
+      if (mounted) {
+        _snack(context, res is Map && res['pesan'] != null ? res['pesan'].toString() : 'Berhasil');
+      }
       _muat();
     } catch (_) {
       if (mounted) _snack(context, 'Gagal terhubung ke server.');
@@ -826,36 +928,47 @@ class _PartnerDetailPageState extends State<PartnerDetailPage> {
             const Text('AffinityEngine', style: TextStyle(color: Color(0xFFB0B8C4))),
           ]),
           const SizedBox(height: 10),
-          Card(
-            margin: EdgeInsets.zero,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                  children: _labelAtribut.keys.where((k) => breakdown.containsKey(k)).map((k) {
-                final b = breakdown[k] as Map;
-                final skor = (b['skor'] as num).toDouble();
-                final bobot = (b['bobot'] as num).toDouble();
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 14),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Row(children: [
-                      Text(_labelAtribut[k]!, style: const TextStyle(fontWeight: FontWeight.bold, color: _navy)),
-                      const SizedBox(width: 8),
-                      _tagRincian(_komplementer.contains(k) ? 'Komplementer' : 'Suplementer'),
-                      const Spacer(),
-                      Text('bobot ${bobot.toStringAsFixed(3).replaceAll('.', ',')}',
-                          style: const TextStyle(color: Color(0xFFB0B8C4), fontSize: 12)),
+          Builder(builder: (context) {
+            final kunci = _labelAtribut.keys.where((k) => breakdown.containsKey(k)).toList();
+            final semuaBobot = kunci.map((k) => ((breakdown[k] as Map)['bobot'] as num).toDouble()).toList();
+            final minBobot = semuaBobot.reduce((a, b) => a < b ? a : b);
+            final maxBobot = semuaBobot.reduce((a, b) => a > b ? a : b);
+            return Card(
+              margin: EdgeInsets.zero,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                    children: kunci.map((k) {
+                  final b = breakdown[k] as Map;
+                  final skor = (b['skor'] as num).toDouble();
+                  final bobot = (b['bobot'] as num).toDouble();
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 14),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Row(children: [
+                        Text(_labelAtribut[k]!, style: const TextStyle(fontWeight: FontWeight.bold, color: _navy)),
+                        const SizedBox(width: 8),
+                        _tagRincian(_komplementer.contains(k) ? 'Komplementer' : 'Suplementer'),
+                        const Spacer(),
+                        Text('bobot ${bobot.toStringAsFixed(3).replaceAll('.', ',')}',
+                            style: const TextStyle(color: Color(0xFFB0B8C4), fontSize: 12)),
+                      ]),
+                      const SizedBox(height: 6),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(999),
+                        child: LinearProgressIndicator(
+                            value: skor,
+                            minHeight: 6,
+                            backgroundColor: const Color(0xFFEEF2F7),
+                            valueColor: AlwaysStoppedAnimation(_warnaBobot(bobot, minBobot, maxBobot)),
+                            borderRadius: BorderRadius.circular(999)),
+                      ),
                     ]),
-                    const SizedBox(height: 6),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(6),
-                      child: LinearProgressIndicator(value: skor, minHeight: 6, backgroundColor: const Color(0xFFEEF2F7)),
-                    ),
-                  ]),
-                );
-              }).toList()),
-            ),
-          ),
+                  );
+                }).toList()),
+              ),
+            );
+          }),
           const SizedBox(height: 20),
         ],
         _sectionTitle('MINAT'),
@@ -944,9 +1057,8 @@ class _PartnerDetailPageState extends State<PartnerDetailPage> {
             color: Colors.white, boxShadow: [BoxShadow(color: Color(0x11000000), blurRadius: 10)]),
         child: Row(children: [
           InkWell(
-            onTap: (_p?['sudahDisimpan'] == true)
-                ? null
-                : () => _post('/people-to-people/saved', {'targetId': widget.mahasiswaId}, 'Profil disimpan'),
+            onTap: () => _toggle(_p?['sudahDisimpan'] == true, '/people-to-people/saved',
+                '/people-to-people/saved/${widget.mahasiswaId}', {'targetId': widget.mahasiswaId}),
             borderRadius: BorderRadius.circular(12),
             child: Container(
               width: 52,
@@ -964,10 +1076,8 @@ class _PartnerDetailPageState extends State<PartnerDetailPage> {
           const SizedBox(width: 10),
           Expanded(
             child: OutlinedButton.icon(
-              onPressed: (_p?['sudahTertarik'] == true)
-                  ? null
-                  : () => _post(
-                      '/people-to-people/interest', {'receiverId': widget.mahasiswaId}, 'Kamu menandai tertarik'),
+              onPressed: () => _toggle(_p?['sudahTertarik'] == true, '/people-to-people/interest',
+                  '/people-to-people/interest/${widget.mahasiswaId}', {'receiverId': widget.mahasiswaId}),
               icon: Icon(
                   (_p?['sudahTertarik'] == true) ? Icons.favorite : Icons.favorite_border,
                   size: 18,
@@ -979,20 +1089,34 @@ class _PartnerDetailPageState extends State<PartnerDetailPage> {
                   backgroundColor: (_p?['sudahTertarik'] == true) ? _pinkMuda : null,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   side: BorderSide(color: (_p?['sudahTertarik'] == true) ? _pink : const Color(0xFFE2E8F0)),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24))),
             ),
           ),
           const SizedBox(width: 10),
           Expanded(
             flex: 2,
             child: FilledButton(
-              onPressed: () =>
-                  _post('/people-to-people/connect', {'receiverId': widget.mahasiswaId}, 'Permintaan koneksi dikirim'),
+              onPressed: () => _toggle(_p?['sudahKirimPermintaan'] == true, '/people-to-people/connect',
+                  '/people-to-people/connect/${widget.mahasiswaId}', {'receiverId': widget.mahasiswaId}),
               style: FilledButton.styleFrom(
-                  backgroundColor: _biru,
+                  backgroundColor: (_p?['sudahKirimPermintaan'] == true) ? const Color(0xFFEEF2FF) : _biru,
+                  disabledBackgroundColor:
+                      (_p?['sudahKirimPermintaan'] == true) ? const Color(0xFFEEF2FF) : null,
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-              child: const Text('Hubungkan', style: TextStyle(fontWeight: FontWeight.bold)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24))),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  if (_p?['sudahKirimPermintaan'] == true) ...[
+                    const Icon(Icons.check_circle, size: 16, color: _biru),
+                    const SizedBox(width: 6),
+                  ],
+                  Text((_p?['sudahKirimPermintaan'] == true) ? 'Terkirim' : 'Hubungkan',
+                      style: TextStyle(
+                          color: (_p?['sudahKirimPermintaan'] == true) ? _biru : Colors.white,
+                          fontWeight: FontWeight.bold)),
+                ]),
+              ),
             ),
           ),
         ]),
@@ -1106,23 +1230,26 @@ class _KoneksiTabState extends State<_KoneksiTab> {
             if (i == 0) _tandaiKoneksiTerlihat();
           },
           child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 10),
+            padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 4),
             decoration: BoxDecoration(
               color: aktif ? Colors.white : Colors.transparent,
               borderRadius: BorderRadius.circular(10),
               boxShadow: aktif ? [const BoxShadow(color: Color(0x14000000), blurRadius: 6)] : null,
             ),
             alignment: Alignment.center,
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Text(label,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontWeight: FontWeight.bold, color: aktif ? _biru : _abu, fontSize: 12)),
-              if (dotBaru) ...[
-                const SizedBox(width: 4),
-                Container(
-                    width: 8, height: 8, decoration: const BoxDecoration(color: Color(0xFFDC2626), shape: BoxShape.circle)),
-              ],
-            ]),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Text(label,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontWeight: FontWeight.w700, color: aktif ? _biru : _abu, fontSize: 12)),
+                if (dotBaru) ...[
+                  const SizedBox(width: 5),
+                  Container(
+                      width: 7, height: 7, decoration: const BoxDecoration(color: Color(0xFFDC2626), shape: BoxShape.circle)),
+                ],
+              ]),
+            ),
           ),
         ),
       );
@@ -1132,10 +1259,10 @@ class _KoneksiTabState extends State<_KoneksiTab> {
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(color: const Color(0xFFEEF2F7), borderRadius: BorderRadius.circular(12)),
       child: Row(children: [
-        seg('Terhubung · ${_terhubung.length}', 0, dotBaru: _hitungKoneksiBaru() > 0),
-        seg('Permintaan · ${_permintaan.length}', 1),
-        seg('Disimpan · ${_disimpan.length}', 2),
-        seg('Menyukai · $_jumlahMenyukai', 3),
+        seg('Terhubung', 0, dotBaru: _hitungKoneksiBaru() > 0),
+        seg('Permintaan', 1, dotBaru: _permintaan.isNotEmpty),
+        seg('Disimpan', 2),
+        seg('Menyukai', 3),
       ]),
     );
   }
@@ -1189,7 +1316,7 @@ class _KoneksiTabState extends State<_KoneksiTab> {
                     style: const TextStyle(color: _navy, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 12),
                 const Text(
-                  'Identitasnya dirahasiakan. Terus jelajahi rekomendasi — kalau kamu juga\n'
+                  'Identitasnya dirahasiakan. Terus jelajahi rekomendasi, dan kalau kamu juga\n'
                   'menandai "Tertarik" ke salah satu dari mereka, kalian akan otomatis terhubung.',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: _abu, height: 1.4),
@@ -1246,7 +1373,7 @@ class _KoneksiTabState extends State<_KoneksiTab> {
                 style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     side: const BorderSide(color: Color(0xFFE2E8F0)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24))),
                 child: const Text('Tolak', style: TextStyle(color: _navy, fontWeight: FontWeight.bold)),
               ),
             ),
@@ -1258,7 +1385,7 @@ class _KoneksiTabState extends State<_KoneksiTab> {
                 style: FilledButton.styleFrom(
                     backgroundColor: _biru,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24))),
                 child: const Text('Terima koneksi', style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ),
@@ -1395,7 +1522,7 @@ class _EmptyState extends StatelessWidget {
             FilledButton(
               onPressed: onTombol,
               style: FilledButton.styleFrom(
-                  backgroundColor: _biru, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                  backgroundColor: _biru, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24))),
               child: Text(tombol, style: const TextStyle(fontWeight: FontWeight.bold)),
             ),
           ]),

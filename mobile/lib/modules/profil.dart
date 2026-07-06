@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:showcaseview/showcaseview.dart';
 import '../api.dart';
+import '../design_system.dart';
 import '../main.dart' show keluarDariApp;
 import 'team_formation.dart' show TreoQuestionnairePage;
 
 // Tab Profil (General Features UC04) + edit profil kolaboratif.
-// Desain mengikuti mockup Figma.
+// Desain mengikuti design system bersama (lihat design_system.dart).
 
-const _biru = Color(0xFF2563EB);
-const _navy = Color(0xFF0F172A);
-const _abu = Color(0xFF64748B);
+const _biru = DS.active;
+const _navy = DS.primaryText;
+const _abu = DS.secondaryText;
+
+// Dipakai tur onboarding (lihat main.dart) — target elemen statis yang selalu ada.
+final GlobalKey tourProfilEditKey = GlobalKey();
 
 const _skillOpsi = [
   'Python', 'JavaScript', 'Figma', 'Flutter', 'Public Speaking', 'Manajemen Proyek',
@@ -39,9 +44,9 @@ Widget _chipList(List<String> items) => Wrap(
       runSpacing: 8,
       children: items
           .map((s) => Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(color: const Color(0xFFEEF2FF), borderRadius: BorderRadius.circular(20)),
-                child: Text(s, style: const TextStyle(color: _navy, fontSize: 13)),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                decoration: BoxDecoration(color: DS.chipInactiveBg, borderRadius: BorderRadius.circular(999)),
+                child: Text(s, style: const TextStyle(color: _navy, fontSize: 13, fontWeight: FontWeight.w500)),
               ))
           .toList(),
     );
@@ -79,12 +84,13 @@ Widget _metrikTreoProfil(String label, double nilai) {
         ]),
         const SizedBox(height: 6),
         ClipRRect(
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(999),
           child: LinearProgressIndicator(
             value: nilai.clamp(0, 1).toDouble(),
             backgroundColor: const Color(0xFFE7ECF5),
             color: _warnaSkorProfil(persen),
             minHeight: 6,
+            borderRadius: BorderRadius.circular(999),
           ),
         ),
       ],
@@ -199,25 +205,31 @@ class _ProfilPageState extends State<ProfilPage> {
                   Container(
                     width: 56,
                     height: 56,
-                    decoration: BoxDecoration(color: _biru, borderRadius: BorderRadius.circular(16)),
+                    decoration: const BoxDecoration(color: _biru, shape: BoxShape.circle),
                     alignment: Alignment.center,
                     child: Text(_inisial(nama),
                         style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 22)),
                   ),
                   const SizedBox(width: 14),
-                  const Expanded(
+                  Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text('Kamu', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: _navy)),
-                      Text('Profil kolaborasi kamu', style: TextStyle(color: _abu, fontSize: 13)),
+                      Text(nama, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: _navy)),
+                      const Text('Profil kolaborasi kamu', style: TextStyle(color: _abu, fontSize: 13)),
                     ]),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.edit_outlined, color: _navy),
-                    style: IconButton.styleFrom(backgroundColor: const Color(0xFFF1F5F9)),
-                    onPressed: () async {
-                      await Navigator.of(context).push(MaterialPageRoute(builder: (_) => EditProfilPage(me: me)));
-                      _muat();
-                    },
+                  Showcase(
+                    key: tourProfilEditKey,
+                    title: 'Edit Profil',
+                    description:
+                        'Lengkapi/perbarui profil kolaboratifmu di sini kapan saja. Makin lengkap, makin akurat rekomendasinya.',
+                    child: IconButton(
+                      icon: const Icon(Icons.edit_outlined, color: _navy),
+                      style: IconButton.styleFrom(backgroundColor: const Color(0xFFF1F5F9)),
+                      onPressed: () async {
+                        await Navigator.of(context).push(MaterialPageRoute(builder: (_) => EditProfilPage(me: me)));
+                        _muat();
+                      },
+                    ),
                   ),
                 ]),
               ),
@@ -230,7 +242,7 @@ class _ProfilPageState extends State<ProfilPage> {
                   Container(
                     width: 40,
                     height: 40,
-                    decoration: BoxDecoration(color: const Color(0xFFEEF2FF), borderRadius: BorderRadius.circular(12)),
+                    decoration: BoxDecoration(color: DS.chipInactiveBg, borderRadius: BorderRadius.circular(12)),
                     alignment: Alignment.center,
                     child: Icon(visible ? Icons.visibility_outlined : Icons.visibility_off_outlined, color: _biru),
                   ),
@@ -396,7 +408,10 @@ class _ProfilPageState extends State<ProfilPage> {
 // ================= EDIT PROFIL =================
 class EditProfilPage extends StatefulWidget {
   final Map<String, dynamic> me;
-  const EditProfilPage({super.key, required this.me});
+  // Kalau diisi, tampilkan tombol "Lewati" di AppBar (dipakai alur onboarding
+  // setelah daftar akun — mengisi profil jadi opsional, bisa dilanjutkan nanti).
+  final VoidCallback? onLewati;
+  const EditProfilPage({super.key, required this.me, this.onLewati});
   @override
   State<EditProfilPage> createState() => _EditProfilPageState();
 }
@@ -504,21 +519,9 @@ class _EditProfilPageState extends State<EditProfilPage> {
   Widget _pilihan(List<String> opsi, bool Function(String) aktif, void Function(String) onTap) => Wrap(
         spacing: 8,
         runSpacing: 8,
-        children: opsi.map((o) {
-          final a = aktif(o);
-          return GestureDetector(
-            onTap: () => setState(() => onTap(o)),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(
-                color: a ? const Color(0xFFEEF2FF) : Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: a ? _biru : const Color(0xFFE2E8F0)),
-              ),
-              child: Text(o, style: TextStyle(color: a ? _biru : _navy, fontWeight: a ? FontWeight.bold : FontWeight.normal)),
-            ),
-          );
-        }).toList(),
+        children: opsi
+            .map((o) => DsChip(label: o, aktif: aktif(o), onTap: () => setState(() => onTap(o))))
+            .toList(),
       );
 
   @override
@@ -529,6 +532,14 @@ class _EditProfilPageState extends State<EditProfilPage> {
         backgroundColor: Colors.white,
         foregroundColor: _navy,
         elevation: 0,
+        actions: widget.onLewati == null
+            ? null
+            : [
+                TextButton(
+                  onPressed: widget.onLewati,
+                  child: const Text('Lewati', style: TextStyle(color: _abu, fontWeight: FontWeight.bold)),
+                ),
+              ],
       ),
       bottomNavigationBar: Container(
         padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),

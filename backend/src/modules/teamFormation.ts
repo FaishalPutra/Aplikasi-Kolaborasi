@@ -731,10 +731,17 @@ router.get('/saya', wajibLogin, async (req: AuthedRequest, res) => {
   return res.json(out);
 });
 
-// Riwayat semua pendaftaran saya (termasuk yang ditolak/keluar), untuk halaman "Riwayat Pengajuan"
+// Riwayat pengajuan saya — HANYA pendaftaran sungguhan (PENDING/ACCEPTED/REJECTED) ke role
+// tim orang lain. Baris keanggotaan otomatis milik pembuat lobi (koordinator) dan status LEFT
+// (keluar/dikeluarkan, riwayatnya sudah ada di tab "Tim Saya") sengaja tidak ikut ditampilkan
+// di sini, supaya label yang muncul di halaman "Riwayat Pengajuan" konsisten hanya 3: Menunggu/Diterima/Ditolak.
 router.get('/pendaftaran-saya', wajibLogin, async (req: AuthedRequest, res) => {
   const daftar = await prisma.pendaftaranAnggota.findMany({
-    where: { mahasiswaId: req.mahasiswaId! },
+    where: {
+      mahasiswaId: req.mahasiswaId!,
+      status: { in: ['PENDING', 'ACCEPTED', 'REJECTED'] },
+      lobi: { koordinatorId: { not: req.mahasiswaId! } },
+    },
     include: { lobi: { include: { lomba: true } }, role: true },
     orderBy: { updatedAt: 'desc' },
   });

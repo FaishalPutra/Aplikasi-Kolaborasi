@@ -6,46 +6,32 @@
 flutter pub get
 ```
 
-Backend (`../backend`) harus sudah jalan di `localhost:3000` sebelum login/mendaftar dari app.
+Backend (`../backend`) harus sudah jalan di `localhost:3000` sebelum login/daftar dari app.
 
 ## Menjalankan
 
-**Web (Chrome) — paling cepat untuk pratinjau:**
+Paling cepat untuk pratinjau, pakai web:
 ```bash
 flutter run -d chrome
 ```
 
-**Android (emulator):**
+Atau di emulator Android:
 ```bash
 flutter run
 ```
 lalu pilih device emulator yang sudah menyala.
 
-Base URL backend otomatis menyesuaikan platform (`lib/api.dart`):
-- Web → `http://localhost:3000/api`
-- Android emulator → `http://10.0.2.2:3000/api` (alias localhost host dari sudut pandang emulator)
+Base URL backend menyesuaikan otomatis (lihat `lib/api.dart`): web ke `localhost:3000`, emulator Android ke `10.0.2.2:3000` (alias localhost dari sudut pandang emulator). Kalau dites di HP fisik, ganti base URL itu manual ke alamat IP LAN laptop.
 
-Kalau menjalankan di **HP fisik** (bukan emulator), ganti base URL di `lib/api.dart` ke alamat IP LAN laptop.
+## Struktur
 
-## Struktur kode
-
-Tiap modul = 1 file di `lib/modules/`:
-- `auth.dart` — Welcome / Login / Register
-- `people_to_project.dart` — 3 tab (Rekomendasi/Terdaftar/Proyek Saya) + Detail Proyek + Kelola Proyek + Buat Proyek
-- `people_to_people.dart` — 2 tab utama (Rekomendasi/Koneksi) + Detail Partner:
-  - Rekomendasi: filter band skor (Semua/Sangat Cocok/Cocok/Cukup Cocok) + filter atribut (minat/peran/gaya kerja/waktu) lewat bottom sheet, kartu tinggi konsisten, status tombol Simpan/Tertarik tersimpan per kandidat
-  - Koneksi: 4 sub-tab — Terhubung (dengan tag asal koneksi "Saling tertarik"/"Via koneksi"), Permintaan, Disimpan, Menyukai (cuma jumlah, identitas dirahasiakan sampai mutual)
-  - Badge merah di tab Koneksi untuk permintaan pending + koneksi baru yang belum dilihat
-- `profil.dart` — tab Profil (lihat & edit 6 atribut kolaboratif + asal kampus/jurusan/angkatan/bio + kontak) + tombol Keluar
-- `team_formation.dart` — placeholder, belum ada isinya
-
-`main.dart` menyimpan navigasi login (`masukKeApp`) dan logout (`keluarDariApp`) sebagai fungsi bersama.
-
-## Akun demo
-
-Tidak ada akun demo bawaan — lihat README root bagian "Akun demo" untuk cara membuat akun testing lewat halaman Register + Edit Profil.
+- `lib/design_system.dart` — komponen & warna yang dipakai bersama semua modul, supaya tampilannya konsisten.
+- `lib/main.dart` — navigasi, tema, bottom nav, dan alur tur pengenalan fitur untuk user baru.
+- `lib/modules/auth.dart` — Welcome, Login, Register.
+- `lib/modules/profil.dart` — lihat & edit profil kolaboratif.
+- `lib/modules/people_to_project.dart`, `people_to_people.dart`, `team_formation.dart` — satu file per modul.
 
 ## Catatan
 
 - Hot reload (`r`) cukup untuk perubahan tampilan kecil. Kalau ada class/halaman baru atau perubahan navigasi, pakai hot restart (`R`).
-- Kalau `flutter` tidak dikenali di terminal padahal sudah terpasang, biasanya karena terminal dibuka sebelum PATH diperbarui — buka terminal baru, atau pakai path lengkap `C:\src\flutter\bin\flutter.bat`.
+- Kalau `flutter` tidak dikenali di terminal padahal sudah terpasang, biasanya PATH belum ke-refresh di terminal itu — buka terminal baru.

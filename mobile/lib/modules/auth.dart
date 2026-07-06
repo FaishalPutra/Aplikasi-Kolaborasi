@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
 import '../api.dart';
+import '../design_system.dart';
+import '../main.dart' show masukKeApp;
+import 'profil.dart' show EditProfilPage;
+import 'team_formation.dart' show TreoQuestionnairePage;
 
 // General Features: Welcome + Login + Register (UC01–UC02).
-// Desain mengikuti mockup Figma (tema biru).
+// Desain mengikuti design system bersama (lihat design_system.dart) — monokrom
+// hitam/putih/abu dengan aksen pill hitam, gaya travel/marketplace app modern.
 
-const _biru = Color(0xFF2563EB);
-const _navy = Color(0xFF0F172A);
-const _abu = Color(0xFF64748B);
+const _biru = DS.active;
+const _navy = DS.primaryText;
+const _abu = DS.secondaryText;
+const _krem = Color(0xFFF3E9D2); // teks hero WelcomePage di atas foto
 
 // Logo kotak "AK"
 class _Logo extends StatelessWidget {
@@ -67,11 +73,11 @@ class LabeledField extends StatelessWidget {
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             suffixIcon: suffix,
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(20),
               borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(20),
               borderSide: const BorderSide(color: _biru, width: 1.5),
             ),
           ),
@@ -96,7 +102,7 @@ class PrimaryButton extends StatelessWidget {
           style: FilledButton.styleFrom(
             backgroundColor: _biru,
             disabledBackgroundColor: const Color(0xFFCBD5E1),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           ),
           child: loading
               ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
@@ -106,82 +112,92 @@ class PrimaryButton extends StatelessWidget {
 }
 
 // ============ 1. WELCOME ============
+// Foto full-bleed + gradient gelap + teks overlay, gaya hero/onboarding modern
+// (referensi: foto tangan bertumpuk — melambangkan kolaborasi tim).
 class WelcomePage extends StatelessWidget {
   final VoidCallback onLoggedIn;
   const WelcomePage({super.key, required this.onLoggedIn});
 
-  Widget _fitur(IconData icon, Color bg, String teks) => Card(
-        margin: const EdgeInsets.only(bottom: 12),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)),
-              child: Icon(icon, size: 20, color: _navy),
-            ),
-            const SizedBox(width: 14),
-            Expanded(child: Text(teks, style: const TextStyle(fontWeight: FontWeight.w600, color: _navy, height: 1.3))),
-          ]),
-        ),
-      );
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            children: [
-              const Spacer(flex: 2),
-              const _Logo(),
-              const SizedBox(height: 20),
-              RichText(
-                text: const TextSpan(
-                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-                  children: [
-                    TextSpan(text: 'Aplikasi ', style: TextStyle(color: _navy)),
-                    TextSpan(text: 'Kolaborasi', style: TextStyle(color: _biru)),
-                  ],
-                ),
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.asset('assets/images/welcome.jpeg', fit: BoxFit.cover),
+          // gelap dari tengah ke bawah — supaya teks & tombol tetap terbaca di atas foto
+          Container(decoration: dsPhotoFade()),
+          // sedikit gelap juga di atas — supaya logo & status bar tetap kontras
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.center,
+                colors: [Color(0x99000000), Colors.transparent],
+                stops: [0.0, 0.6],
               ),
-              const SizedBox(height: 12),
-              const Text(
-                'Temukan rekan kolaborasi yang benar-benar cocok — bukan cuma yang kebetulan kamu kenal.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: _abu, height: 1.5, fontSize: 15),
-              ),
-              const SizedBox(height: 28),
-              _fitur(Icons.track_changes, const Color(0xFFDCFCE7), 'Dicocokkan lewat minat, skill & gaya kerja'),
-              _fitur(Icons.search, const Color(0xFFE0E7FF), 'Tahu kenapa kalian cocok, transparan'),
-              const Spacer(flex: 3),
-              PrimaryButton(
-                label: 'Daftar akun',
-                onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => RegisterPage(onLoggedIn: onLoggedIn))),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: OutlinedButton(
-                  onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => LoginPage(onLoggedIn: onLoggedIn))),
-                  style: OutlinedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    side: const BorderSide(color: Color(0xFFE2E8F0)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  ),
-                  child: const Text('Masuk',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: _biru)),
-                ),
-              ),
-              const SizedBox(height: 24),
-            ],
+            ),
           ),
-        ),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
+              child: Column(
+                children: [
+                  const _Logo(size: 64),
+                  const Spacer(flex: 3),
+                  SizedBox(
+                    width: double.infinity,
+                    child: RichText(
+                      textAlign: TextAlign.left,
+                      text: TextSpan(
+                        style: DS.font.copyWith(height: 1.25),
+                        children: [
+                          TextSpan(
+                              text: 'Temukan ',
+                              style: TextStyle(color: _krem.withValues(alpha: 0.88), fontSize: 17)),
+                          TextSpan(
+                              text: 'rekan, proyek,\ndan tim\n',
+                              style: TextStyle(color: _krem, fontSize: 30, fontWeight: FontWeight.w700)),
+                          TextSpan(
+                              text: 'yang benar-benar ',
+                              style: TextStyle(color: _krem.withValues(alpha: 0.88), fontSize: 17)),
+                          TextSpan(
+                              text: 'cocok denganmu\n',
+                              style: TextStyle(color: _krem, fontSize: 30, fontWeight: FontWeight.w700)),
+                          TextSpan(
+                              text: 'bukan cuma yang kebetulan kamu kenal.',
+                              style: TextStyle(color: _krem.withValues(alpha: 0.88), fontSize: 17)),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+                  DsCtaButton(
+                    label: 'Daftar akun',
+                    onPressed: () => Navigator.of(context)
+                        .push(MaterialPageRoute(builder: (_) => RegisterPage(onLoggedIn: onLoggedIn))),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context)
+                          .push(MaterialPageRoute(builder: (_) => LoginPage(onLoggedIn: onLoggedIn))),
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: Colors.white.withValues(alpha: 0.12),
+                        side: const BorderSide(color: Colors.white70),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+                      ),
+                      child: const Text('Masuk',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -324,11 +340,13 @@ class _RegisterPageState extends State<RegisterPage> {
         setState(() => _pesan = reg['error'].toString());
         return;
       }
-      // Langsung login setelah daftar → masuk ke app (lalu isi profil)
+      // Langsung login setelah daftar → onboarding (isi profil + TREO, bisa dilewati) →
+      // masuk ke app dengan tur singkat fitur utama (cuma sekali, saat baru daftar)
       final login = await apiPost('/auth/login', {'email': _email.text.trim(), 'password': _password.text});
       if (login is Map && login['token'] != null) {
         authToken = login['token'].toString();
-        widget.onLoggedIn();
+        if (mounted) await _onboarding(context);
+        if (mounted) masukKeApp(context, showTour: true);
       } else {
         setState(() => _pesan = 'Akun dibuat, tapi login otomatis gagal. Silakan masuk manual.');
       }
@@ -337,6 +355,27 @@ class _RegisterPageState extends State<RegisterPage> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  // Onboarding setelah akun baru dibuat: isi Profil Kolaboratif lalu Kuesioner TREO,
+  // masing-masing bisa dilewati (tombol "Lewati" di AppBar) — datanya dipakai
+  // AffinityEngine ketiga modul (People-to-People, People-to-Project, Team Formation).
+  Future<void> _onboarding(BuildContext context) async {
+    Map<String, dynamic> me = {};
+    try {
+      final res = await apiGet('/auth/me');
+      if (res is Map) me = Map<String, dynamic>.from(res);
+    } catch (_) {
+      // lanjut dengan map kosong kalau gagal memuat — EditProfilPage tetap bisa dipakai
+    }
+    if (!context.mounted) return;
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (ctx) => EditProfilPage(me: me, onLewati: () => Navigator.of(ctx).pop()),
+    ));
+    if (!context.mounted) return;
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (ctx) => TreoQuestionnairePage(onLewati: () => Navigator.of(ctx).pop()),
+    ));
   }
 
   @override

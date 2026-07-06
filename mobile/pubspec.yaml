@@ -10,11 +10,26 @@ dependencies:
   flutter:
     sdk: flutter
   http: ^1.2.0
+  google_fonts: ^6.2.1
+  showcaseview: ^3.0.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
+  flutter_native_splash: ^2.4.1
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/images/
+
+flutter_native_splash:
+  background_image: assets/images/welcome.jpeg
+  image: assets/images/splash_logo.png
+  android_12:
+    # Android 12+ splash API cuma dukung warna solid + ikon (tidak ada foto latar,
+    # keterbatasan OS) — jadi tetap pakai putih supaya ikon "AK" hitam kontras.
+    image: assets/images/splash_logo.png
+    color: "#FFFFFF"
+  web: false

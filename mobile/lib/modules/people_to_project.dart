@@ -1,14 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:showcaseview/showcaseview.dart';
 import '../api.dart';
+import '../design_system.dart';
 
 // Modul People-to-Project (Faishal). Tersambung ke /api/people-to-project.
-// Desain mengikuti mockup Figma. 3 tab: Rekomendasi / Terdaftar / Proyek Saya.
+// Desain mengikuti design system bersama (lihat design_system.dart).
+// 3 tab: Rekomendasi / Terdaftar / Proyek Saya.
 
-const _biru = Color(0xFF2563EB);
-const _navy = Color(0xFF0F172A);
-const _abu = Color(0xFF64748B);
-const _hijau = Color(0xFF16A34A);
-const _amber = Color(0xFFD97706);
+const _biru = DS.active;
+const _navy = DS.primaryText;
+const _abu = DS.secondaryText;
+const _hijau = DS.success;
+const _amber = DS.warning;
+
+// Dipakai tur onboarding (lihat main.dart) — target elemen statis yang selalu ada.
+final GlobalKey tourP2PToggleKey = GlobalKey();
 
 // badge backend: hijau/kuning/abu -> label & warna
 String _badgeLabel(String b) {
@@ -69,7 +75,7 @@ Widget _ikonKotak({double size = 52}) => Container(
       height: size,
       decoration: BoxDecoration(
           color: const Color(0xFFF1F5F9),
-          borderRadius: BorderRadius.circular(14)),
+          borderRadius: BorderRadius.circular(20)),
       child: const Icon(Icons.work_outline, color: _navy),
     );
 
@@ -103,33 +109,16 @@ class _Donut extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final warna = persen >= 85 ? _hijau : (persen >= 60 ? _amber : _abu);
-    return SizedBox(
-      width: size,
-      height: size,
-      child: Stack(alignment: Alignment.center, children: [
-        SizedBox(
-          width: size,
-          height: size,
-          child: CircularProgressIndicator(
-            value: persen / 100,
-            strokeWidth: size * 0.09,
-            backgroundColor: const Color(0xFFE5E7EB),
-            valueColor: AlwaysStoppedAnimation(warna),
-          ),
-        ),
-        Column(mainAxisSize: MainAxisSize.min, children: [
-          Text('${persen.round()}%',
-              style: TextStyle(
-                  fontSize: size * 0.22,
-                  fontWeight: FontWeight.bold,
-                  color: _navy)),
-          Text('KECOCOKAN',
-              style: TextStyle(
-                  fontSize: size * 0.09,
-                  color: _abu,
-                  letterSpacing: 0.6,
-                  fontWeight: FontWeight.w600)),
-        ]),
+    return DsRadialGauge(
+      percent: persen,
+      size: size,
+      filledColor: warna,
+      center: Column(mainAxisSize: MainAxisSize.min, children: [
+        Text('${persen.round()}%',
+            style: TextStyle(fontSize: size * 0.2, fontWeight: FontWeight.bold, color: _navy)),
+        Text('KECOCOKAN',
+            style: TextStyle(
+                fontSize: size * 0.08, color: _abu, letterSpacing: 0.6, fontWeight: FontWeight.w600)),
       ]),
     );
   }
@@ -166,12 +155,13 @@ Widget _rincianKecocokan(Map breakdown) => Card(
               ]),
               const SizedBox(height: 6),
               ClipRRect(
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(999),
                 child: LinearProgressIndicator(
                     value: skor,
                     minHeight: 8,
                     backgroundColor: const Color(0xFFEEF2F7),
-                    valueColor: const AlwaysStoppedAnimation(_hijau)),
+                    valueColor: const AlwaysStoppedAnimation(_hijau),
+                    borderRadius: BorderRadius.circular(999)),
               ),
             ]),
           );
@@ -198,7 +188,12 @@ class _PeopleToProjectPageState extends State<PeopleToProjectPage> {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Column(children: [
             const SizedBox(height: 8),
-            _toggle(),
+            Showcase(
+              key: tourP2PToggleKey,
+              title: 'Jelajahi Proyek',
+              description: 'Cari rekomendasi proyek yang cocok, lihat yang sudah kamu daftar, atau kelola proyek buatanmu sendiri di sini.',
+              child: _toggle(),
+            ),
             const SizedBox(height: 12),
             Expanded(
               child: IndexedStack(
@@ -230,7 +225,7 @@ class _PeopleToProjectPageState extends State<PeopleToProjectPage> {
             padding: const EdgeInsets.symmetric(vertical: 12),
             decoration: BoxDecoration(
               color: aktif ? Colors.white : Colors.transparent,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(20),
               boxShadow: aktif
                   ? [const BoxShadow(color: Color(0x14000000), blurRadius: 8)]
                   : null,
@@ -269,7 +264,7 @@ class _PeopleToProjectPageState extends State<PeopleToProjectPage> {
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
           color: const Color(0xFFEEF2F7),
-          borderRadius: BorderRadius.circular(14)),
+          borderRadius: BorderRadius.circular(20)),
       child: Row(children: [
         seg('Rekomendasi', 0),
         seg('Terdaftar', 1),
@@ -631,7 +626,7 @@ class _ProyekSayaTabState extends State<_ProyekSayaTab> {
             style: FilledButton.styleFrom(
                 backgroundColor: _biru,
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12))),
+                    borderRadius: BorderRadius.circular(20))),
           ),
         ]),
         const SizedBox(height: 12),
@@ -912,7 +907,7 @@ class _DetailProjectPageState extends State<DetailProjectPage> {
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
                 color: const Color(0xFFDCFCE7),
-                borderRadius: BorderRadius.circular(14)),
+                borderRadius: BorderRadius.circular(20)),
             child: Row(children: [
               Icon(_ikonKontak(p['kontakJenisPembuat']?.toString()),
                   color: _hijau),
@@ -1050,7 +1045,7 @@ class _DetailProjectPageState extends State<DetailProjectPage> {
         style: FilledButton.styleFrom(
             backgroundColor: _biru,
             shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14))),
+                borderRadius: BorderRadius.circular(20))),
         child: const Text('Kelola proyek',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
       ));
@@ -1083,12 +1078,20 @@ class _DetailProjectPageState extends State<DetailProjectPage> {
           Expanded(
             child: Container(
               height: 52,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                  color: bg, borderRadius: BorderRadius.circular(14)),
-              child: Text(teks,
-                  style: TextStyle(
-                      color: fg, fontWeight: FontWeight.bold, fontSize: 16)),
+                  color: bg, borderRadius: BorderRadius.circular(20)),
+              // FittedBox: teks otomatis mengecil kalau nama role-nya panjang
+              // (bikin 2 baris), supaya tetap pas di dalam kotak tanpa tumpah —
+              // ukuran kotaknya sendiri tidak berubah.
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(teks,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        color: fg, fontWeight: FontWeight.bold, fontSize: 16)),
+              ),
             ),
           ),
           if (pendaftaranId != null) ...[
@@ -1100,7 +1103,7 @@ class _DetailProjectPageState extends State<DetailProjectPage> {
                 style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: Color(0xFFDC2626)),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14))),
+                        borderRadius: BorderRadius.circular(20))),
                 child: const Text('Batalkan',
                     style: TextStyle(
                         color: Color(0xFFDC2626), fontWeight: FontWeight.bold)),
@@ -1116,7 +1119,7 @@ class _DetailProjectPageState extends State<DetailProjectPage> {
       style: FilledButton.styleFrom(
           backgroundColor: _biru,
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))),
       child: Text(penuh ? 'Kuota penuh' : 'Daftar ke proyek',
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
     ));
@@ -1284,7 +1287,7 @@ class _KelolaProjectPageState extends State<KelolaProjectPage> {
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(20),
               border: Border.all(color: const Color(0xFFE2E8F0))),
           child: Column(children: [
             Text(judul, style: const TextStyle(color: _abu, fontSize: 11)),
@@ -1409,7 +1412,7 @@ class _KelolaProjectPageState extends State<KelolaProjectPage> {
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         side: const BorderSide(color: Color(0xFFE2E8F0)),
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12))),
+                            borderRadius: BorderRadius.circular(20))),
                     child: const Text('Tolak',
                         style: TextStyle(
                             color: _navy, fontWeight: FontWeight.bold)),
@@ -1425,7 +1428,7 @@ class _KelolaProjectPageState extends State<KelolaProjectPage> {
                         backgroundColor: _biru,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12))),
+                            borderRadius: BorderRadius.circular(20))),
                     child: const Text('Terima',
                         style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
@@ -1558,7 +1561,7 @@ class _PendaftarProfilPageState extends State<PendaftarProfilPage> {
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           side: const BorderSide(color: Color(0xFFE2E8F0)),
                           shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12))),
+                              borderRadius: BorderRadius.circular(20))),
                       child: const Text('Tolak',
                           style: TextStyle(
                               color: _navy, fontWeight: FontWeight.bold)),
@@ -1573,7 +1576,7 @@ class _PendaftarProfilPageState extends State<PendaftarProfilPage> {
                           backgroundColor: _biru,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12))),
+                              borderRadius: BorderRadius.circular(20))),
                       child: const Text('Terima',
                           style: TextStyle(fontWeight: FontWeight.bold)),
                     ),
@@ -1794,10 +1797,10 @@ class _BuatProjectPageState extends State<BuatProjectPage> {
           filled: true,
           fillColor: Colors.white,
           enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(20),
               borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
           focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(20),
               borderSide: const BorderSide(color: _biru)),
         ),
       );
@@ -1815,7 +1818,7 @@ class _BuatProjectPageState extends State<BuatProjectPage> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
                 color: a ? const Color(0xFFEEF2FF) : Colors.white,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: a ? _biru : const Color(0xFFE2E8F0)),
               ),
               child: Text(o,
@@ -1834,7 +1837,7 @@ class _BuatProjectPageState extends State<BuatProjectPage> {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(color: const Color(0xFFE2E8F0))),
       child: Row(children: [
         Expanded(
@@ -1890,7 +1893,7 @@ class _BuatProjectPageState extends State<BuatProjectPage> {
                 backgroundColor: _biru,
                 disabledBackgroundColor: const Color(0xFFCBD5E1),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14))),
+                    borderRadius: BorderRadius.circular(20))),
             child: _loading
                 ? const SizedBox(
                     height: 22,
@@ -1974,7 +1977,7 @@ class _EmptyState extends StatelessWidget {
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
             color: const Color(0xFFF6F8FB),
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(20),
             border: Border.all(color: const Color(0xFFCBD5E1)),
           ),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -1996,7 +1999,7 @@ class _EmptyState extends StatelessWidget {
               style: FilledButton.styleFrom(
                   backgroundColor: _biru,
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12))),
+                      borderRadius: BorderRadius.circular(20))),
               child: Text(tombol,
                   style: const TextStyle(fontWeight: FontWeight.bold)),
             ),

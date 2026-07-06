@@ -1,74 +1,42 @@
 # Aplikasi Kolaborasi Mahasiswa
 
-Aplikasi pencarian peluang kolaborasi mahasiswa, terdiri dari 3 modul rekomendasi berbasis *Affinity Based Matching*. Monorepo: `backend/` (Express + Prisma + PostgreSQL) dan `mobile/` (Flutter).
+Aplikasi untuk membantu mahasiswa menemukan rekan kolaborasi yang cocok, baik itu teman satu proyek/kegiatan, teman satu minat, maupun tim untuk ikut lomba. Semuanya dicocokkan pakai algoritma affinity matching, bukan sekadar pencarian biasa.
 
-## Status modul
+Ada 3 modul utama:
 
-| Modul | PIC (TA) | Status |
-|---|---|---|
-| **People-to-Project** — mahasiswa ⇄ proyek/kegiatan | Muhammad Faishal Putra | ✅ Selesai (backend + UI, tersambung penuh) |
-| **People-to-People** — mahasiswa ⇄ mahasiswa | Ahmad Fawwazi | ✅ Selesai (backend + UI, tersambung penuh) |
-| **Team Formation** — pembentukan tim | Muhammad Faishal Firdaus | ⛔ Belum dikerjakan (baru placeholder `/health`) |
-| **General Features** — auth, profil, tab Profil | bersama | ✅ Selesai |
+- **People-to-Project** — mencocokkan mahasiswa dengan proyek/kegiatan yang lagi butuh anggota.
+- **People-to-People** — mencocokkan mahasiswa dengan mahasiswa lain untuk berkolaborasi.
+- **Team Formation** — bantu mahasiswa membentuk tim lomba, lengkap dengan pembagian peran berdasarkan profil TREO.
 
-## Arsitektur singkat
+Project ini dikerjakan bertiga sebagai Tugas Akhir, masing-masing pegang satu modul: Ahmad Fawwazi (People-to-People), Muhammad Faishal Putra (People-to-Project), dan Muhammad Faishal Firdaus (Team Formation).
 
-```
-mobile (Flutter)  --HTTP JSON-->  backend (Express)  --Prisma-->  PostgreSQL
-```
+## Teknologi
 
-- **Dua mesin Affinity Engine independen**, masing-masing sesuai TA-nya sendiri:
-  - `backend/src/affinityProject.ts` — People-to-Project (2 sub-algoritma, kombinasi 50:50, + hard-constraint jadwal)
-  - `backend/src/affinityPeople.ts` — People-to-People (1 weighted-sum ROC, simetris)
-- **Skor kecocokan selalu dihitung ulang saat itu juga** setiap kali feed/detail/kelola dibuka — bukan dijadwalkan atau di-cache. Efek edit profil langsung terlihat begitu halaman dibuka ulang.
-- `ketersediaanWaktu` pada People-to-Project adalah **hard-constraint filter** (gerbang lolos/tidak, Tahap 0), bukan bagian dari skor berbobot.
+Backend pakai Express + Prisma + PostgreSQL, mobile app pakai Flutter. Repo ini monorepo — `backend/` dan `mobile/` jadi satu supaya gampang disinkronkan.
 
-## Menjalankan (2 terminal)
+## Cara menjalankan
 
-**1) Backend**
+Butuh 2 terminal terpisah, dan PostgreSQL sudah harus jalan duluan.
+
+**Backend:**
 ```bash
 cd backend
 npm install
-cp .env.example .env        # isi DATABASE_URL (lihat backend/README.md)
+cp .env.example .env   # isi DATABASE_URL, lihat backend/README.md
 npm run prisma:generate
 npm run prisma:migrate
-npm run dev                 # http://localhost:3000
+npm run dev             # jalan di http://localhost:3000
 ```
 
-**2) Mobile**
+**Mobile:**
 ```bash
 cd mobile
 flutter pub get
-flutter run -d chrome       # atau: flutter run (pilih emulator Android)
+flutter run -d chrome   # atau `flutter run` lalu pilih emulator Android
 ```
 
-PostgreSQL harus sudah jalan (service lokal) sebelum backend dinyalakan. Detail lengkap ada di `backend/README.md` dan `mobile/README.md`.
+Detail lebih lanjut ada di `backend/README.md` dan `mobile/README.md`.
 
-## Akun demo
+## Akun untuk testing
 
-**Tidak ada akun/data yang otomatis ter-seed** — database kosong setelah `prisma migrate`. Kalau butuh akun untuk testing, buat sendiri lewat `POST /api/auth/register` lalu lengkapi profil (`PUT /api/auth/akun` dan `PUT /api/auth/profil`), atau lewat halaman Register di app. Minimal 2 akun dengan profil lengkap dibutuhkan untuk mencoba alur dua arah (rekomendasi, tertarik, hubungkan, dll).
-
-## Struktur folder
-
-```
-backend/
-  prisma/schema.prisma       # semua model (ditandai [SHARED]/[P2P-PROJECT]/[P2P-PEOPLE]/[TEAM-FORM])
-  src/
-    affinityProject.ts       # Affinity Engine People-to-Project
-    affinityPeople.ts        # Affinity Engine People-to-People
-    modules/
-      general.ts             # auth + profil (UC01-04)
-      peopleToProject.ts      # UC05-11
-      peopleToPeople.ts       # UC05-12
-      teamFormation.ts        # placeholder
-mobile/
-  lib/
-    api.dart                 # base URL (web vs Android emulator) + helper HTTP
-    main.dart                # navigasi, tema, bottom nav 4 tab
-    modules/
-      auth.dart               # Welcome/Login/Register
-      people_to_project.dart  # Rekomendasi/Terdaftar/Proyek Saya + detail/kelola/buat
-      people_to_people.dart   # Rekomendasi/Koneksi + detail partner
-      profil.dart              # tab Profil (baca + edit)
-      team_formation.dart      # placeholder
-```
+Database kosong begitu migrasi pertama selesai — belum ada akun bawaan. Daftar akun sendiri lewat halaman Register, atau lewat `POST /api/auth/register`, lalu lengkapi profil di halaman Profil supaya bisa dapat rekomendasi. Butuh minimal 2 akun dengan profil lengkap kalau mau coba alur dua arah (kirim minat, hubungkan, gabung tim, dll).
