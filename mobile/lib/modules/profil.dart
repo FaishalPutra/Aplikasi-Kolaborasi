@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../api.dart';
 import '../main.dart' show keluarDariApp;
+import 'team_formation.dart' show TreoQuestionnairePage;
 
 // Tab Profil (General Features UC04) + edit profil kolaboratif.
 // Desain mengikuti mockup Figma.
@@ -50,6 +51,47 @@ Widget _sectionTitle(String t) =>
 
 void _snack(BuildContext c, String m) => ScaffoldMessenger.of(c).showSnackBar(SnackBar(content: Text(m)));
 
+const Map<String, String> _treoDimLabelProfil = {
+  'organizer': 'Organizer',
+  'doer': 'Doer',
+  'challenger': 'Challenger',
+  'innovator': 'Innovator',
+  'teamBuilder': 'Team Builder',
+  'connector': 'Connector',
+};
+
+Color _warnaSkorProfil(int persen) {
+  if (persen < 40) return Colors.red.shade600;
+  if (persen < 80) return const Color(0xFFF59E0B);
+  return const Color(0xFF16A34A);
+}
+
+Widget _metrikTreoProfil(String label, double nilai) {
+  final persen = (nilai * 100).round();
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 8),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(children: [
+          Expanded(child: Text(label, style: const TextStyle(color: _navy, fontSize: 13, fontWeight: FontWeight.w600))),
+          Text('$persen%', style: const TextStyle(color: _navy, fontSize: 13, fontWeight: FontWeight.w700)),
+        ]),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: nilai.clamp(0, 1).toDouble(),
+            backgroundColor: const Color(0xFFE7ECF5),
+            color: _warnaSkorProfil(persen),
+            minHeight: 6,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
 // ================= HALAMAN PROFIL (BACA) =================
 class ProfilPage extends StatefulWidget {
   const ProfilPage({super.key});
@@ -59,6 +101,7 @@ class ProfilPage extends StatefulWidget {
 
 class _ProfilPageState extends State<ProfilPage> {
   Map<String, dynamic>? _me;
+  Map<String, dynamic>? _treo;
   bool _loading = true;
 
   @override
@@ -80,6 +123,14 @@ class _ProfilPageState extends State<ProfilPage> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+    _muatTreo();
+  }
+
+  Future<void> _muatTreo() async {
+    try {
+      final res = await apiGet('/team-formation/treo');
+      if (mounted && res is Map) setState(() => _treo = Map<String, dynamic>.from(res));
+    } catch (_) {}
   }
 
   Future<void> _ubahVisibilitas(bool nilai) async {
@@ -218,6 +269,47 @@ class _ProfilPageState extends State<ProfilPage> {
             _sectionTitle('KETERSEDIAAN WAKTU'),
             const SizedBox(height: 10),
             waktu.isEmpty ? const Text('Belum diisi', style: TextStyle(color: _abu)) : _chipList(waktu),
+            const SizedBox(height: 18),
+            _sectionTitle('TREO ROLE TEAM'),
+            const SizedBox(height: 10),
+            Card(
+              margin: EdgeInsets.zero,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (_treo?['diisi'] != true) ...[
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8),
+                        child: Text('Belum mengisi kuesioner TREO', style: TextStyle(color: _abu)),
+                      ),
+                    ] else
+                      ..._treoDimLabelProfil.entries.map((e) {
+                        final nilai = (_treo?['norm']?[e.key] as num?)?.toDouble() ?? 0.0;
+                        return _metrikTreoProfil(e.value, nilai);
+                      }),
+                    const SizedBox(height: 4),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: () async {
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const TreoQuestionnairePage()),
+                          );
+                          _muatTreo();
+                        },
+                        icon: const Icon(Icons.assignment_outlined, size: 18),
+                        label: Text(_treo?['diisi'] == true ? 'Lihat/Ubah Kuesioner TREO' : 'Isi Kuesioner TREO'),
+                        style: FilledButton.styleFrom(backgroundColor: _biru, padding: const EdgeInsets.symmetric(vertical: 12)),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                ),
+              ),
+            ),
             const SizedBox(height: 18),
             Card(
               margin: EdgeInsets.zero,

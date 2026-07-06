@@ -20,6 +20,7 @@ enum StatusPendaftaran {
   PENDING
   ACCEPTED
   REJECTED
+  LEFT
 }
 
 // [SHARED]
@@ -40,6 +41,10 @@ model Mahasiswa {
   projectsCreated Project[]              @relation("ProjectPembuat")
   pendaftaran     PendaftaranProject[]
   affinityScores  AffinityScoreProject[]
+
+  treoProfil            TreoProfil?
+  pendaftaranAnggota    PendaftaranAnggota[]
+  affinityScoresTeam    AffinityScoreRoleTeam[]
 }
 
 // [SHARED] Profil kolaboratif — dasar Affinity Engine (UC04)
@@ -181,4 +186,157 @@ model Connection {
   @@unique([mahasiswaAId, mahasiswaBId])
 }
 
-// [TEAM-FORM]  TODO Faishal — model dari ERD
+// [TEAM-FORM]
+enum StatusLomba {
+  ACTIVE
+  CLOSED
+}
+
+enum StatusLobi {
+  OPEN
+  FINALIZING // pembuat tim sudah inisiasi finalisasi, menunggu semua anggota setuju
+  FINAL
+  CLOSED
+}
+
+// [TEAM-FORM] UC21 — usul lomba baru. Tanpa aktor Pengelola Platform: langsung ACTIVE saat diusulkan.
+model Lomba {
+  id            String      @id @default(cuid())
+  judul         String
+  deskripsi     String
+  kategoriLomba String[]    // vocabulary sama dengan Profil.minatTag — req_minat(r) di Algoritma IV.1
+  maxAnggotaTim Int
+  minAnggotaTim Int?
+  tenggat       DateTime?
+  penyelenggara String?
+  hadiah        String?     // mis. "Rp30 juta" — teks bebas, ditampilkan di kartu daftar lomba
+  cakupan       String?     // "Nasional" | "Regional" | "Internasional"
+  jenisBiaya    String?     // "GRATIS" | "BERBAYAR"
+  nominalBiaya  String?     // mis. "Rp150.000" — diisi kalau jenisBiaya = "BERBAYAR"
+  kontakInstagram  String?
+  kontakWebsite    String?
+  kontakNarahubung String?  // nama + nomor narahubung, teks bebas
+  status        StatusLomba @default(ACTIVE)
+  createdAt     DateTime    @default(now())
+  pengusulId    String      // mahasiswa yang usul (plain FK, tanpa relasi navigasi)
+
+  lobi          StudentLobby[]
+}
+
+// [TEAM-FORM] Lobi/tim yang dibentuk mahasiswa untuk mengikuti sebuah Lomba
+model StudentLobby {
+  id            String     @id @default(cuid())
+  lombaId       String
+  lomba         Lomba      @relation(fields: [lombaId], references: [id])
+  judul         String
+  deskripsi     String?
+  koordinatorId String     // plain FK — pembuat lobi, murni administratif (bukan skor TREO)
+  status        StatusLobi @default(OPEN)
+  waktuInisiasiFinalisasi DateTime? // saat pembuat tim inisiasi finalisasi — dasar batas waktu 1 jam agar anggota menyetujui
+  createdAt     DateTime   @default(now())
+
+  roles         RoleLobiTim[]
+  pendaftaran   PendaftaranAnggota[]
+  pesan         DiskusiTim[]
+  affinityRole  AffinityScoreRoleTeam[]
+  skorTim       TeamFormationScore?
+}
+
+// [TEAM-FORM] role + kuota per lobi. namaRole dipilih dari Domain Skill Role sistem (bukan bebas isi)
+model RoleLobiTim {
+  id            String       @id @default(cuid())
+  lobiId        String
+  lobi          StudentLobby @relation(fields: [lobiId], references: [id], onDelete: Cascade)
+  namaRole      String       // mis. "Data Analyst", "Backend Developer", "UI/UX Designer"
+  pengalamanReq Int?         // 1..3, opsional — kalau null, atribut pengalaman dikeluarkan dari IV.1 (renormalize bobot skill/minat)
+  kuota         Int
+  sisaKuota     Int
+
+  pendaftaran   PendaftaranAnggota[]
+  affinityScore AffinityScoreRoleTeam[]
+}
+
+// [TEAM-FORM] pendaftaran mahasiswa ke sebuah role dalam lobi
+model PendaftaranAnggota {
+  id                String            @id @default(cuid())
+  mahasiswaId       String
+  lobiId            String
+  roleId            String
+  status            StatusPendaftaran @default(PENDING)
+  setujuFinalisasi  Boolean           @default(false) // anggota ACCEPTED menyetujui inisiasi finalisasi tim
+  dikeluarkan       Boolean           @default(false) // true jika status LEFT karena dikeluarkan koordinator, bukan keluar sendiri
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  mahasiswa Mahasiswa    @relation(fields: [mahasiswaId], references: [id])
+  lobi      StudentLobby @relation(fields: [lobiId], references: [id])
+  role      RoleLobiTim  @relation(fields: [roleId], references: [id])
+
+  @@unique([mahasiswaId, lobiId])
+}
+
+// [TEAM-FORM] hasil Algoritma IV.1 (TechnicalRoleAffinity individu-role), dikunci saat diterima
+model AffinityScoreRoleTeam {
+  id          String   @id @default(cuid())
+  mahasiswaId String
+  lobiId      String
+  roleId      String
+  nilaiTotal  Float    // 0..1
+  detail      Json
+  timestamp   DateTime @default(now())
+
+  mahasiswa Mahasiswa    @relation(fields: [mahasiswaId], references: [id])
+  lobi      StudentLobby @relation(fields: [lobiId], references: [id])
+  role      RoleLobiTim  @relation(fields: [roleId], references: [id])
+
+  @@unique([mahasiswaId, lobiId, roleId])
+}
+
+// [TEAM-FORM] hasil Algoritma IV.3 di tingkat tim, cache untuk ditampilkan/diurutkan
+model TeamFormationScore {
+  id                      String       @id @default(cuid())
+  lobiId                  String       @unique
+  lobi                    StudentLobby @relation(fields: [lobiId], references: [id])
+  technicalRoleAffinity   Float
+  distributedRoleCoverage Float
+  m                       Int
+  teamFunctionAffinity    Float
+  effectivenessScore      Float
+  detail                  Json
+  timestamp               DateTime     @default(now())
+}
+
+// [TEAM-FORM] jawaban kuesioner TREO (48 item Likert 1..5) + skor 6 dimensi per mahasiswa
+model TreoProfil {
+  id          String    @id @default(cuid())
+  mahasiswaId String    @unique
+  mahasiswa   Mahasiswa @relation(fields: [mahasiswaId], references: [id], onDelete: Cascade)
+
+  organizerRaw   Float @default(0)
+  doerRaw        Float @default(0)
+  challengerRaw  Float @default(0)
+  innovatorRaw   Float @default(0)
+  teamBuilderRaw Float @default(0)
+  connectorRaw   Float @default(0)
+
+  organizerNorm   Float @default(0)
+  doerNorm        Float @default(0)
+  challengerNorm  Float @default(0)
+  innovatorNorm   Float @default(0)
+  teamBuilderNorm Float @default(0)
+  connectorNorm   Float @default(0)
+
+  jawaban   Json    // 48 jawaban mentah {"organizer":[8 int],...}
+  diisi     Boolean @default(false)
+  updatedAt DateTime @updatedAt
+}
+
+// [TEAM-FORM] diskusi tim sederhana per lobi
+model DiskusiTim {
+  id          String       @id @default(cuid())
+  lobiId      String
+  lobi        StudentLobby @relation(fields: [lobiId], references: [id], onDelete: Cascade)
+  mahasiswaId String       // plain FK
+  pesan       String
+  createdAt   DateTime     @default(now())
+}
