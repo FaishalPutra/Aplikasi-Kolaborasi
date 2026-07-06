@@ -1,42 +1,144 @@
 # Aplikasi Kolaborasi Mahasiswa
 
-Aplikasi untuk membantu mahasiswa menemukan rekan kolaborasi yang cocok, baik itu teman satu proyek/kegiatan, teman satu minat, maupun tim untuk ikut lomba. Semuanya dicocokkan pakai algoritma affinity matching, bukan sekadar pencarian biasa.
+Aplikasi Kolaborasi Mahasiswa adalah platform yang dirancang untuk membantu mahasiswa menemukan rekan kolaborasi yang sesuai, baik untuk proyek, kegiatan, minat yang sama, maupun pembentukan tim lomba. Sistem ini tidak hanya menggunakan pencarian biasa, tetapi menerapkan algoritma **affinity matching** untuk mencocokkan profil mahasiswa dengan kebutuhan kolaborasi secara lebih relevan.
 
-Ada 3 modul utama:
+## Modul Utama
 
-- **People-to-Project** — mencocokkan mahasiswa dengan proyek/kegiatan yang lagi butuh anggota.
-- **People-to-People** — mencocokkan mahasiswa dengan mahasiswa lain untuk berkolaborasi.
-- **Team Formation** — bantu mahasiswa membentuk tim lomba, lengkap dengan pembagian peran berdasarkan profil TREO.
+Aplikasi ini terdiri dari tiga modul utama:
 
-Project ini dikerjakan bertiga sebagai Tugas Akhir, masing-masing pegang satu modul: Ahmad Fawwazi (People-to-People), Muhammad Faishal Putra (People-to-Project), dan Muhammad Faishal Firdaus (Team Formation).
+### People-to-Project
 
-## Teknologi
+Modul ini mencocokkan mahasiswa dengan proyek atau kegiatan yang sedang membutuhkan anggota. Rekomendasi diberikan berdasarkan kesesuaian antara profil mahasiswa dengan kebutuhan proyek, seperti minat, kemampuan, pengalaman, preferensi peran, dan ketersediaan.
 
-Backend pakai Express + Prisma + PostgreSQL, mobile app pakai Flutter. Repo ini monorepo — `backend/` dan `mobile/` jadi satu supaya gampang disinkronkan.
+### People-to-People
 
-## Cara menjalankan
+Modul ini mencocokkan mahasiswa dengan mahasiswa lain yang memiliki potensi kolaborasi. Pencocokan dilakukan berdasarkan profil kolaboratif, seperti kesamaan minat, kemampuan, gaya kerja, pengalaman, dan preferensi dalam bekerja sama.
 
-Butuh 2 terminal terpisah, dan PostgreSQL sudah harus jalan duluan.
+### Team Formation
 
-**Backend:**
+Modul ini membantu mahasiswa membentuk tim lomba dengan pembagian peran yang lebih terarah. Proses pembentukan tim mempertimbangkan profil mahasiswa dan pendekatan TREO agar komposisi tim menjadi lebih seimbang.
+
+## Tim Pengembang
+
+Project ini dikembangkan oleh tiga mahasiswa sebagai bagian dari Tugas Akhir. Setiap anggota bertanggung jawab pada satu modul utama:
+
+| Nama                     | Modul             |
+| ------------------------ | ----------------- |
+| Ahmad Fawwazi            | People-to-People  |
+| Muhammad Faishal Putra   | People-to-Project |
+| Muhammad Faishal Firdaus | Team Formation    |
+
+## Teknologi yang Digunakan
+
+Project ini menggunakan arsitektur monorepo, sehingga kode backend dan mobile app berada dalam satu repository agar lebih mudah disinkronkan selama pengembangan.
+
+| Bagian        | Teknologi                   |
+| ------------- | --------------------------- |
+| Backend       | Express, Prisma, PostgreSQL |
+| Mobile App    | Flutter                     |
+| Database      | PostgreSQL                  |
+| Struktur Repo | Monorepo                    |
+
+Struktur utama repository:
+
+```bash
+.
+├── backend/
+└── mobile/
+```
+
+## Cara Menjalankan Project
+
+Sebelum menjalankan aplikasi, pastikan PostgreSQL sudah aktif dan dapat diakses. Project ini membutuhkan dua terminal terpisah: satu untuk backend dan satu untuk mobile app.
+
+## Menjalankan Backend
+
+Masuk ke folder backend:
+
 ```bash
 cd backend
-npm install
-cp .env.example .env   # isi DATABASE_URL, lihat backend/README.md
-npm run prisma:generate
-npm run prisma:migrate
-npm run dev             # jalan di http://localhost:3000
 ```
 
-**Mobile:**
+Install dependency:
+
+```bash
+npm install
+```
+
+Buat file environment dari contoh yang tersedia:
+
+```bash
+cp .env.example .env
+```
+
+Isi konfigurasi `DATABASE_URL` pada file `.env`. Detail konfigurasi dapat dilihat pada `backend/README.md`.
+
+Generate Prisma Client:
+
+```bash
+npm run prisma:generate
+```
+
+Jalankan migrasi database:
+
+```bash
+npm run prisma:migrate
+```
+
+Jalankan server backend:
+
+```bash
+npm run dev
+```
+
+Backend akan berjalan di:
+
+```bash
+http://localhost:3000
+```
+
+## Menjalankan Mobile App
+
+Buka terminal baru, lalu masuk ke folder mobile:
+
 ```bash
 cd mobile
-flutter pub get
-flutter run -d chrome   # atau `flutter run` lalu pilih emulator Android
 ```
 
-Detail lebih lanjut ada di `backend/README.md` dan `mobile/README.md`.
+Install dependency Flutter:
 
-## Akun untuk testing
+```bash
+flutter pub get
+```
 
-Database kosong begitu migrasi pertama selesai — belum ada akun bawaan. Daftar akun sendiri lewat halaman Register, atau lewat `POST /api/auth/register`, lalu lengkapi profil di halaman Profil supaya bisa dapat rekomendasi. Butuh minimal 2 akun dengan profil lengkap kalau mau coba alur dua arah (kirim minat, hubungkan, gabung tim, dll).
+Jalankan aplikasi melalui browser Chrome:
+
+```bash
+flutter run -d chrome
+```
+
+Atau jalankan menggunakan emulator Android:
+
+```bash
+flutter run
+```
+
+Lalu pilih emulator Android yang tersedia.
+
+## Akun untuk Testing
+
+Setelah migrasi pertama dijalankan, database masih dalam kondisi kosong dan belum memiliki akun bawaan.
+
+Untuk melakukan testing, buat akun baru melalui salah satu cara berikut:
+
+1. Melalui halaman Register pada aplikasi.
+2. Melalui endpoint:
+
+```bash
+POST /api/auth/register
+```
+
+Setelah akun berhasil dibuat, lengkapi profil kolaboratif melalui halaman Profil agar sistem dapat memberikan rekomendasi.
+
+Untuk menguji alur kolaborasi dua arah, seperti mengirim minat, terhubung dengan mahasiswa lain, atau bergabung ke tim, disarankan menggunakan minimal dua akun dengan profil yang sudah lengkap.
+
