@@ -325,6 +325,100 @@ router.get('/saya', wajibLogin, async (req: AuthedRequest, res) => {
   );
 });
 
+// Edit proyek yang sudah dibuat (hanya pembuat). Role dicocokkan lewat namaRole
+// (satu project cuma boleh punya 1 role per kategori — sama seperti aturan saat Buat Proyek):
+// - namaRole yang sudah ada -> kuota/skillDicari di-update (kuota tidak boleh kurang dari yang sudah terisi)
+// - namaRole baru -> role baru dibuat
+// - namaRole lama yang tidak dikirim lagi -> dihapus, TAPI ditolak kalau sudah ada pendaftar sama sekali
+router.put('/projects/:id', wajibLogin, async (req: AuthedRequest, res) => {
+  const project = await prisma.project.findUnique({
+    where: { id: req.params.id },
+    include: { roles: { include: { pendaftaran: true } } },
+  });
+  if (!project) return res.status(404).json({ error: 'Project tidak ditemukan' });
+  if (project.pembuatId !== req.mahasiswaId) {
+    return res.status(403).json({ error: 'Hanya pembuat kegiatan yang dapat mengedit' });
+  }
+
+  const {
+    judul,
+    deskripsi,
+    timeline,
+    durasi,
+    format,
+    jadwalSlot,
+    pengalamanReq,
+    minatTag,
+    gayaKerja,
+    roles,
+  } = req.body ?? {};
+
+  if (!judul || !deskripsi || !Array.isArray(roles) || roles.length === 0) {
+    return res.status(400).json({ error: 'judul, deskripsi, dan minimal satu role wajib' });
+  }
+  for (const r of roles) {
+    if (!r.namaRole || typeof r.kuota !== 'number' || r.kuota < 1) {
+      return res.status(400).json({ error: 'setiap role wajib namaRole dan kuota >= 1' });
+    }
+  }
+
+  const namaRoleBaru = new Set(roles.map((r: any) => r.namaRole));
+  const dihapus = project.roles.filter((r) => !namaRoleBaru.has(r.namaRole));
+  const rolePunyaPendaftar = dihapus.find((r) => r.pendaftaran.length > 0);
+  if (rolePunyaPendaftar) {
+    return res.status(409).json({
+      error: `Tidak bisa menghapus role "${rolePunyaPendaftar.namaRole}" karena sudah ada pendaftar`,
+    });
+  }
+
+  for (const r of roles) {
+    const existing = project.roles.find((x) => x.namaRole === r.namaRole);
+    if (existing) {
+      const terisi = existing.kuota - existing.sisaKuota;
+      if (r.kuota < terisi) {
+        return res.status(409).json({
+          error: `Kuota "${r.namaRole}" tidak boleh kurang dari ${terisi} (sudah terisi)`,
+        });
+      }
+    }
+  }
+
+  await prisma.$transaction([
+    prisma.project.update({
+      where: { id: req.params.id },
+      data: {
+        judul,
+        deskripsi,
+        timeline: timeline ?? null,
+        durasi: durasi ?? null,
+        format: format ?? null,
+        jadwalSlot: Array.isArray(jadwalSlot) ? jadwalSlot : [],
+        pengalamanReq: typeof pengalamanReq === 'number' ? pengalamanReq : 1,
+        minatTag: Array.isArray(minatTag) ? minatTag : [],
+        gayaKerja: gayaKerja ?? null,
+      },
+    }),
+    ...dihapus.map((r) => prisma.kebutuhanRole.delete({ where: { id: r.id } })),
+    ...roles.map((r: any) => {
+      const existing = project.roles.find((x) => x.namaRole === r.namaRole);
+      const skillDicari = Array.isArray(r.skillDicari) ? r.skillDicari : [];
+      if (existing) {
+        const terisi = existing.kuota - existing.sisaKuota;
+        return prisma.kebutuhanRole.update({
+          where: { id: existing.id },
+          data: { skillDicari, kuota: r.kuota, sisaKuota: r.kuota - terisi },
+        });
+      }
+      return prisma.kebutuhanRole.create({
+        data: { projectId: req.params.id, namaRole: r.namaRole, skillDicari, kuota: r.kuota, sisaKuota: r.kuota },
+      });
+    }),
+  ]);
+
+  const updated = await prisma.project.findUnique({ where: { id: req.params.id }, include: { roles: true } });
+  return res.json(updated);
+});
+
 // Hapus proyek (hanya pembuat). Menghapus juga pendaftaran & skor affinity terkait,
 // karena relasi itu tidak cascade otomatis (KebutuhanRole tetap cascade lewat schema).
 router.delete('/projects/:id', wajibLogin, async (req: AuthedRequest, res) => {
@@ -382,7 +476,18 @@ router.get('/pendaftaran/:id/profil', wajibLogin, async (req: AuthedRequest, res
     where: { id: req.params.id },
     include: {
       project: { include: { roles: true } },
-      mahasiswa: { select: { nama: true, institusi: true, jurusan: true, angkatan: true, bio: true } },
+      mahasiswa: {
+        select: {
+          nama: true,
+          institusi: true,
+          jurusan: true,
+          angkatan: true,
+          bio: true,
+          kontak: true,
+          kontakJenis: true,
+          email: true,
+        },
+      },
       role: true,
     },
   });
@@ -404,6 +509,10 @@ router.get('/pendaftaran/:id/profil', wajibLogin, async (req: AuthedRequest, res
       })()
     : null;
 
+  // Kontak pendaftar hanya dibuka ke pembuat kegiatan kalau pendaftarannya sudah DITERIMA
+  // (mutual dengan sisi sebaliknya: kontak pembuat juga baru terbuka ke pendaftar setelah diterima).
+  const diterima = pendaftaran.status === 'ACCEPTED';
+
   return res.json({
     mahasiswaId: pendaftaran.mahasiswaId,
     nama: pendaftaran.mahasiswa.nama,
@@ -420,6 +529,10 @@ router.get('/pendaftaran/:id/profil', wajibLogin, async (req: AuthedRequest, res
     preferensiPeran: profil?.preferensiPeran ?? null,
     ketersediaanWaktu: profil?.ketersediaanWaktu ?? [],
     affinity,
+    kontak: diterima ? (pendaftaran.mahasiswa.kontak ?? pendaftaran.mahasiswa.email) : null,
+    kontakJenis: diterima
+      ? (pendaftaran.mahasiswa.kontak ? pendaftaran.mahasiswa.kontakJenis ?? 'EMAIL' : 'EMAIL')
+      : null,
   });
 });
 

@@ -99,6 +99,28 @@ Widget _sectionTitle(String t) => Text(t,
     style: const TextStyle(
         color: _biru, fontWeight: FontWeight.bold, letterSpacing: 0.5));
 
+// Bar pencarian dipakai di 3 tab (Rekomendasi/Terdaftar/Proyek Saya) — filter lokal by judul.
+Widget _searchBar(TextEditingController c,
+        {String hint = 'Cari judul proyek...',
+        ValueChanged<String>? onChanged}) =>
+    Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+          color: const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(12)),
+      child: TextField(
+        controller: c,
+        onChanged: onChanged,
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle: const TextStyle(color: _abu),
+          prefixIcon: const Icon(Icons.search, color: _abu),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(vertical: 14),
+        ),
+      ),
+    );
+
 void _snack(BuildContext c, String m) =>
     ScaffoldMessenger.of(c).showSnackBar(SnackBar(content: Text(m)));
 
@@ -115,10 +137,16 @@ class _Donut extends StatelessWidget {
       filledColor: warna,
       center: Column(mainAxisSize: MainAxisSize.min, children: [
         Text('${persen.round()}%',
-            style: TextStyle(fontSize: size * 0.2, fontWeight: FontWeight.bold, color: _navy)),
+            style: TextStyle(
+                fontSize: size * 0.2,
+                fontWeight: FontWeight.bold,
+                color: _navy)),
         Text('KECOCOKAN',
             style: TextStyle(
-                fontSize: size * 0.08, color: _abu, letterSpacing: 0.6, fontWeight: FontWeight.w600)),
+                fontSize: size * 0.08,
+                color: _abu,
+                letterSpacing: 0.6,
+                fontWeight: FontWeight.w600)),
       ]),
     );
   }
@@ -191,7 +219,8 @@ class _PeopleToProjectPageState extends State<PeopleToProjectPage> {
             Showcase(
               key: tourP2PToggleKey,
               title: 'Jelajahi Proyek',
-              description: 'Cari rekomendasi proyek yang cocok, lihat yang sudah kamu daftar, atau kelola proyek buatanmu sendiri di sini.',
+              description:
+                  'Cari rekomendasi proyek yang cocok, lihat yang sudah kamu daftar, atau kelola proyek buatanmu sendiri di sini.',
               child: _toggle(),
             ),
             const SizedBox(height: 12),
@@ -225,7 +254,7 @@ class _PeopleToProjectPageState extends State<PeopleToProjectPage> {
             padding: const EdgeInsets.symmetric(vertical: 12),
             decoration: BoxDecoration(
               color: aktif ? Colors.white : Colors.transparent,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(11),
               boxShadow: aktif
                   ? [const BoxShadow(color: Color(0x14000000), blurRadius: 8)]
                   : null,
@@ -286,6 +315,15 @@ class _RekomendasiTabState extends State<_RekomendasiTab>
   List<dynamic> _feed = [];
   bool _loading = true;
   String? _pesan;
+  final _search = TextEditingController();
+
+  List<dynamic> get _feedFiltered {
+    final q = _search.text.trim().toLowerCase();
+    if (q.isEmpty) return _feed;
+    return _feed
+        .where((e) => (e['judul']?.toString() ?? '').toLowerCase().contains(q))
+        .toList();
+  }
 
   @override
   bool get wantKeepAlive => true;
@@ -337,20 +375,24 @@ class _RekomendasiTabState extends State<_RekomendasiTab>
         const Text('Diurutkan dari kecocokan profilmu (person-job fit)',
             style: TextStyle(color: _abu)),
         const SizedBox(height: 12),
-        if (_feed.isEmpty)
+        _searchBar(_search, onChanged: (_) => setState(() {})),
+        if (_feedFiltered.isEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 40),
             child: _EmptyState(
               icon: Icons.auto_awesome,
-              judul: _pesan ?? 'Belum ada rekomendasi',
-              subtitle:
-                  'Lengkapi profilmu atau tunggu proyek baru muncul sesuai kecocokanmu.',
+              judul: _feed.isEmpty
+                  ? (_pesan ?? 'Belum ada rekomendasi')
+                  : 'Tidak ditemukan',
+              subtitle: _feed.isEmpty
+                  ? 'Lengkapi profilmu atau tunggu proyek baru muncul sesuai kecocokanmu.'
+                  : 'Coba kata kunci lain.',
               tombol: 'Muat ulang',
               onTombol: _muat,
             ),
           )
         else
-          ..._feed.map((e) => _kartuFeed(e as Map)),
+          ..._feedFiltered.map((e) => _kartuFeed(e as Map)),
       ]),
     );
   }
@@ -421,6 +463,15 @@ class _TerdaftarTab extends StatefulWidget {
 class _TerdaftarTabState extends State<_TerdaftarTab> {
   List<dynamic> _rows = [];
   bool _loading = true;
+  final _search = TextEditingController();
+
+  List<dynamic> get _rowsFiltered {
+    final q = _search.text.trim().toLowerCase();
+    if (q.isEmpty) return _rows;
+    return _rows
+        .where((e) => (e['judul']?.toString() ?? '').toLowerCase().contains(q))
+        .toList();
+  }
 
   @override
   void initState() {
@@ -463,20 +514,24 @@ class _TerdaftarTabState extends State<_TerdaftarTab> {
             style: TextStyle(
                 fontSize: 24, fontWeight: FontWeight.bold, color: _navy)),
         const SizedBox(height: 12),
-        if (_rows.isEmpty)
+        _searchBar(_search, onChanged: (_) => setState(() {})),
+        if (_rowsFiltered.isEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 40),
             child: _EmptyState(
               icon: Icons.assignment_outlined,
-              judul: 'Belum mendaftar ke proyek mana pun',
-              subtitle:
-                  'Daftar dari tab Rekomendasi untuk mulai mengikuti kegiatan.',
+              judul: _rows.isEmpty
+                  ? 'Belum mendaftar ke proyek mana pun'
+                  : 'Tidak ditemukan',
+              subtitle: _rows.isEmpty
+                  ? 'Daftar dari tab Rekomendasi untuk mulai mengikuti kegiatan.'
+                  : 'Coba kata kunci lain.',
               tombol: 'Muat ulang',
               onTombol: _muat,
             ),
           )
         else
-          ..._rows.map((e) => _kartu(e as Map)),
+          ..._rowsFiltered.map((e) => _kartu(e as Map)),
       ]),
     );
   }
@@ -577,6 +632,15 @@ class _ProyekSayaTab extends StatefulWidget {
 class _ProyekSayaTabState extends State<_ProyekSayaTab> {
   List<dynamic> _rows = [];
   bool _loading = true;
+  final _search = TextEditingController();
+
+  List<dynamic> get _rowsFiltered {
+    final q = _search.text.trim().toLowerCase();
+    if (q.isEmpty) return _rows;
+    return _rows
+        .where((e) => (e['judul']?.toString() ?? '').toLowerCase().contains(q))
+        .toList();
+  }
 
   @override
   void initState() {
@@ -630,24 +694,28 @@ class _ProyekSayaTabState extends State<_ProyekSayaTab> {
           ),
         ]),
         const SizedBox(height: 12),
-        if (_rows.isEmpty)
+        _searchBar(_search, onChanged: (_) => setState(() {})),
+        if (_rowsFiltered.isEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 40),
             child: _EmptyState(
               icon: Icons.add_circle_outline,
-              judul: 'Belum membuat proyek',
-              subtitle:
-                  'Buat kegiatan kolaboratif pertamamu dan temukan mahasiswa yang cocok.',
-              tombol: 'Buat proyek',
-              onTombol: () async {
-                await Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const BuatProjectPage()));
-                _muat();
-              },
+              judul: _rows.isEmpty ? 'Belum membuat proyek' : 'Tidak ditemukan',
+              subtitle: _rows.isEmpty
+                  ? 'Buat kegiatan kolaboratif pertamamu dan temukan mahasiswa yang cocok.'
+                  : 'Coba kata kunci lain.',
+              tombol: _rows.isEmpty ? 'Buat proyek' : 'Muat ulang',
+              onTombol: _rows.isEmpty
+                  ? () async {
+                      await Navigator.of(context).push(MaterialPageRoute(
+                          builder: (_) => const BuatProjectPage()));
+                      _muat();
+                    }
+                  : _muat,
             ),
           )
         else
-          ..._rows.map((e) => _kartu(e as Map)),
+          ..._rowsFiltered.map((e) => _kartu(e as Map)),
       ]),
     );
   }
@@ -945,6 +1013,8 @@ class _DetailProjectPageState extends State<DetailProjectPage> {
           ),
           const SizedBox(height: 16),
         ],
+        _sectionTitle('DESKRIPSI'),
+        const SizedBox(height: 8),
         Text(p['deskripsi']?.toString() ?? '',
             style: const TextStyle(fontSize: 15, height: 1.4, color: _navy)),
         const SizedBox(height: 20),
@@ -1230,6 +1300,16 @@ class _KelolaProjectPageState extends State<KelolaProjectPage> {
         foregroundColor: _navy,
         elevation: 0,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.edit_outlined, color: _biru),
+            tooltip: 'Edit proyek',
+            onPressed: () async {
+              await Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) =>
+                      BuatProjectPage(projectId: widget.projectId)));
+              _muat();
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.delete_outline, color: Color(0xFFDC2626)),
             tooltip: 'Hapus proyek',
@@ -1629,6 +1709,35 @@ class _PendaftarProfilPageState extends State<PendaftarProfilPage> {
                 style: const TextStyle(fontWeight: FontWeight.bold)),
           ])),
         ),
+        if ((d['kontak']?.toString() ?? '').isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+                color: const Color(0xFFDCFCE7),
+                borderRadius: BorderRadius.circular(14)),
+            child: Row(children: [
+              Icon(_ikonKontak(d['kontakJenis']?.toString()), color: _hijau),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('KONTAK PENDAFTAR · ${d['kontakJenis'] ?? 'EMAIL'}',
+                          style: const TextStyle(
+                              color: _hijau,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold)),
+                      Text(d['kontak'].toString(),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: _navy,
+                              fontSize: 15)),
+                    ]),
+              ),
+            ]),
+          ),
+        ],
         if (affinity != null) ...[
           const SizedBox(height: 20),
           Center(
@@ -1683,7 +1792,8 @@ class _PendaftarProfilPageState extends State<PendaftarProfilPage> {
 
 // ================= BUAT PROYEK =================
 class BuatProjectPage extends StatefulWidget {
-  const BuatProjectPage({super.key});
+  final String? projectId; // null = buat baru, terisi = edit proyek ini
+  const BuatProjectPage({super.key, this.projectId});
   @override
   State<BuatProjectPage> createState() => _BuatProjectPageState();
 }
@@ -1700,6 +1810,9 @@ class _BuatProjectPageState extends State<BuatProjectPage> {
   String _pengalaman = 'Menengah';
   final Set<String> _ketersediaan = {};
   bool _loading = false;
+  bool _loadingAwal = false;
+
+  bool get _editMode => widget.projectId != null;
 
   // Taksonomi generik — HARUS sama persis dengan preferensiPeran profil mahasiswa,
   // karena Affinity Engine mencocokkan string-nya langsung (lihat affinityProject.ts).
@@ -1749,6 +1862,41 @@ class _BuatProjectPageState extends State<BuatProjectPage> {
   int get _pengalamanReq =>
       _pengalamanOpsi.indexOf(_pengalaman) + 1; // Pemula=1, Menengah=2, Mahir=3
 
+  @override
+  void initState() {
+    super.initState();
+    if (_editMode) _muatDataLama();
+  }
+
+  Future<void> _muatDataLama() async {
+    setState(() => _loadingAwal = true);
+    try {
+      final res =
+          await apiGet('/people-to-project/projects/${widget.projectId}');
+      if (res is Map) {
+        _judul.text = res['judul']?.toString() ?? '';
+        _deskripsi.text = res['deskripsi']?.toString() ?? '';
+        _minat.addAll((res['minatTag'] as List?)?.cast<String>() ?? []);
+        _ketersediaan
+            .addAll((res['jadwalSlot'] as List?)?.cast<String>() ?? []);
+        final gaya = res['gayaKerja']?.toString();
+        if (gaya != null && _gayaKerjaOpsi.contains(gaya)) _gayaKerja = gaya;
+        final pengalamanReq = (res['pengalamanReq'] as num?)?.toInt() ?? 2;
+        if (pengalamanReq >= 1 && pengalamanReq <= 3) {
+          _pengalaman = _pengalamanOpsi[pengalamanReq - 1];
+        }
+        for (final r in (res['roles'] as List? ?? [])) {
+          final role = r as Map;
+          _peran[role['namaRole'].toString()] = (role['kuota'] as num).toInt();
+          _skill.addAll((role['skillDicari'] as List?)?.cast<String>() ?? []);
+        }
+      }
+    } catch (_) {
+    } finally {
+      if (mounted) setState(() => _loadingAwal = false);
+    }
+  }
+
   Future<void> _buat() async {
     setState(() => _loading = true);
     try {
@@ -1767,13 +1915,17 @@ class _BuatProjectPageState extends State<BuatProjectPage> {
                 })
             .toList(),
       };
-      final res = await apiPost('/people-to-project/projects', body);
+      final res = _editMode
+          ? await apiPut(
+              '/people-to-project/projects/${widget.projectId}', body)
+          : await apiPost('/people-to-project/projects', body);
       if (!mounted) return;
       if (res is Map && res['error'] != null) {
         _snack(context, res['error'].toString());
       } else {
-        _snack(context, 'Proyek berhasil dibuat');
-        Navigator.pop(context);
+        _snack(context,
+            _editMode ? 'Perubahan disimpan' : 'Proyek berhasil dibuat');
+        Navigator.pop(context, true);
       }
     } catch (_) {
       if (mounted) _snack(context, 'Gagal terhubung ke server.');
@@ -1868,10 +2020,13 @@ class _BuatProjectPageState extends State<BuatProjectPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_loadingAwal) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Buat proyek baru',
-            style: TextStyle(fontWeight: FontWeight.bold, color: _navy)),
+        title: Text(_editMode ? 'Edit proyek' : 'Buat proyek baru',
+            style: const TextStyle(fontWeight: FontWeight.bold, color: _navy)),
         backgroundColor: Colors.white,
         foregroundColor: _navy,
         elevation: 0,
@@ -1900,9 +2055,9 @@ class _BuatProjectPageState extends State<BuatProjectPage> {
                     width: 22,
                     child: CircularProgressIndicator(
                         strokeWidth: 2, color: Colors.white))
-                : const Text('Buat proyek',
-                    style:
-                        TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                : Text(_editMode ? 'Simpan perubahan' : 'Buat proyek',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 16)),
           ),
         ),
       ),
@@ -1916,23 +2071,6 @@ class _BuatProjectPageState extends State<BuatProjectPage> {
                 maxLines: 4),
 
             // 6 atribut Affinity Engine (sama seperti profil mahasiswa) — menentukan skor kecocokan.
-            _label('MINAT / BIDANG'),
-            _pilihan(_minatOpsi, (o) => _minat.contains(o),
-                (o) => _minat.contains(o) ? _minat.remove(o) : _minat.add(o)),
-            _label('GAYA KERJA KEGIATAN'),
-            _pilihan(
-                _gayaKerjaOpsi, (o) => _gayaKerja == o, (o) => _gayaKerja = o),
-            _label('PENGALAMAN DISARANKAN'),
-            _pilihan(_pengalamanOpsi, (o) => _pengalaman == o,
-                (o) => _pengalaman = o),
-            _label('KETERSEDIAAN JADWAL KEGIATAN'),
-            _pilihan(
-                _waktuOpsi,
-                (o) => _ketersediaan.contains(o),
-                (o) => _ketersediaan.contains(o)
-                    ? _ketersediaan.remove(o)
-                    : _ketersediaan.add(o)),
-
             Row(children: [
               _label('PERAN DIBUTUHKAN'),
               const Text(' *', style: TextStyle(color: Color(0xFFDC2626)))
@@ -1954,6 +2092,22 @@ class _BuatProjectPageState extends State<BuatProjectPage> {
             _label('SKILL DIBUTUHKAN'),
             _pilihan(_skillOpsi, (o) => _skill.contains(o),
                 (o) => _skill.contains(o) ? _skill.remove(o) : _skill.add(o)),
+            _label('MINAT / BIDANG'),
+            _pilihan(_minatOpsi, (o) => _minat.contains(o),
+                (o) => _minat.contains(o) ? _minat.remove(o) : _minat.add(o)),
+            _label('GAYA KERJA KEGIATAN'),
+            _pilihan(
+                _gayaKerjaOpsi, (o) => _gayaKerja == o, (o) => _gayaKerja = o),
+            _label('PENGALAMAN DISARANKAN'),
+            _pilihan(_pengalamanOpsi, (o) => _pengalaman == o,
+                (o) => _pengalaman = o),
+            _label('KETERSEDIAAN JADWAL KEGIATAN'),
+            _pilihan(
+                _waktuOpsi,
+                (o) => _ketersediaan.contains(o),
+                (o) => _ketersediaan.contains(o)
+                    ? _ketersediaan.remove(o)
+                    : _ketersediaan.add(o)),
           ]),
     );
   }
