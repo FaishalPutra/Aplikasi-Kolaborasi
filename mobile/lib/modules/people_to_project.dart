@@ -70,13 +70,51 @@ String _jurusanAngkatan(dynamic jurusan, dynamic angkatan) {
   return angkatan != null ? ' · $j · $angkatan' : ' · $j';
 }
 
-Widget _ikonKotak({double size = 52}) => Container(
+// Ikon ditebak dari kata kunci di judul proyek (bukan field terpisah) — di luar kata
+// kunci yang dikenal / judul kosong, jatuh ke ikon umum (Icons.work_rounded).
+IconData _ikonJudul(String? judul) {
+  final j = (judul ?? '').toLowerCase();
+  if (j.contains('aplikasi') ||
+      j.contains(' app') ||
+      j.contains('website') ||
+      j.contains('sistem')) {
+    return Icons.smartphone_rounded;
+  }
+  if (j.contains('riset') || j.contains('penelitian'))
+    return Icons.science_rounded;
+  if (j.contains('desain') || j.contains('ui/ux') || j.contains('grafis'))
+    return Icons.palette_rounded;
+  if (j.contains('kompetisi') || j.contains('lomba'))
+    return Icons.emoji_events_rounded;
+  if (j.contains('kkn') || j.contains('pengabdian') || j.contains('relawan')) {
+    return Icons.volunteer_activism_rounded;
+  }
+  if (j.contains('wirausaha') ||
+      j.contains('bisnis') ||
+      j.contains('startup')) {
+    return Icons.rocket_launch_rounded;
+  }
+  return Icons.work_rounded; // lainnya / tidak cocok kata kunci apa pun
+}
+
+Widget _ikonKotak({double size = 52, String? judul}) => Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
-          color: const Color(0xFFF1F5F9),
-          borderRadius: BorderRadius.circular(20)),
-      child: const Icon(Icons.work_outline, color: _navy),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFF1F5FF), Color(0xFFE0E9FF)],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+              color: _biru.withValues(alpha: 0.12),
+              blurRadius: 8,
+              offset: const Offset(0, 3)),
+        ],
+      ),
+      child: Icon(_ikonJudul(judul), color: _biru, size: size * 0.46),
     );
 
 Widget _chipList(List<String> items) => Wrap(
@@ -120,7 +158,8 @@ void _jelaskanSkorProyek(BuildContext context) {
     context: context,
     builder: (ctx) => AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: const Text('Kenapa skor ini?', style: TextStyle(fontWeight: FontWeight.bold, color: _navy)),
+      title: const Text('Kenapa skor ini?',
+          style: TextStyle(fontWeight: FontWeight.bold, color: _navy)),
       content: const Text(
         'Skor kecocokan dilihat dari beberapa hal: skill, minat, gaya kerja, dan pengalaman.\n\n'
         'Untuk skill dan pengalaman, dilihat dari seberapa besar kemampuanmu memenuhi kebutuhan '
@@ -131,7 +170,10 @@ void _jelaskanSkorProyek(BuildContext context) {
         style: TextStyle(color: _navy, height: 1.5),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Mengerti', style: TextStyle(fontWeight: FontWeight.bold))),
+        TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Mengerti',
+                style: TextStyle(fontWeight: FontWeight.bold))),
       ],
     ),
   );
@@ -157,7 +199,8 @@ void _jelaskanDeskripsiProyek(BuildContext context) {
     context: context,
     builder: (ctx) => AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: const Text('Apa isi Deskripsi?', style: TextStyle(fontWeight: FontWeight.bold, color: _navy)),
+      title: const Text('Apa isi Deskripsi?',
+          style: TextStyle(fontWeight: FontWeight.bold, color: _navy)),
       content: const Text(
         'Bagian ini berisi penjelasan dari pembuat proyek, seperti latar belakang, tujuan, atau '
         'hal-hal yang perlu diketahui sebelum ikut bergabung.\n\n'
@@ -166,7 +209,10 @@ void _jelaskanDeskripsiProyek(BuildContext context) {
         style: TextStyle(color: _navy, height: 1.5),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Mengerti', style: TextStyle(fontWeight: FontWeight.bold))),
+        TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Mengerti',
+                style: TextStyle(fontWeight: FontWeight.bold))),
       ],
     ),
   );
@@ -177,7 +223,8 @@ void _jelaskanPeranDibutuhkan(BuildContext context) {
     context: context,
     builder: (ctx) => AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: const Text('Apa saja peran ini?', style: TextStyle(fontWeight: FontWeight.bold, color: _navy)),
+      title: const Text('Apa saja peran ini?',
+          style: TextStyle(fontWeight: FontWeight.bold, color: _navy)),
       content: const Text(
         'Setiap proyek punya beberapa peran yang bisa dipilih anggota saat mendaftar:\n\n'
         'Leader/Coordinator: memimpin dan mengatur jalannya proyek, membagi tugas, dan memastikan '
@@ -190,7 +237,10 @@ void _jelaskanPeranDibutuhkan(BuildContext context) {
         style: TextStyle(color: _navy, height: 1.5),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Mengerti', style: TextStyle(fontWeight: FontWeight.bold))),
+        TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Mengerti',
+                style: TextStyle(fontWeight: FontWeight.bold))),
       ],
     ),
   );
@@ -215,6 +265,37 @@ Widget _searchBar(TextEditingController c,
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(vertical: 14),
         ),
+      ),
+    );
+
+// Dropdown filter dipakai di 3 tab — tampil sebagai pill kecil + panah, tap buka menu.
+// `opsi` urut key->label (LinkedHashMap-friendly lewat literal Map biasa).
+Widget _dropdownFilter({
+  required String value,
+  required Map<String, String> opsi,
+  required ValueChanged<String> onChanged,
+}) =>
+    PopupMenuButton<String>(
+      initialValue: value,
+      onSelected: onChanged,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      itemBuilder: (context) => opsi.entries
+          .map((e) => PopupMenuItem(value: e.key, child: Text(e.value)))
+          .toList(),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Text(opsi[value] ?? value,
+              style: const TextStyle(
+                  color: _navy, fontWeight: FontWeight.w600, fontSize: 13)),
+          const SizedBox(width: 4),
+          const Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: _abu),
+        ]),
       ),
     );
 
@@ -413,13 +494,24 @@ class _RekomendasiTabState extends State<_RekomendasiTab>
   bool _loading = true;
   String? _pesan;
   final _search = TextEditingController();
+  String _filterBadge = 'semua';
+
+  static const _badgeOpsi = {
+    'semua': 'Semua',
+    'hijau': 'Sangat Cocok',
+    'kuning': 'Cocok',
+    'abu': 'Cukup Cocok',
+  };
 
   List<dynamic> get _feedFiltered {
     final q = _search.text.trim().toLowerCase();
-    if (q.isEmpty) return _feed;
-    return _feed
-        .where((e) => (e['judul']?.toString() ?? '').toLowerCase().contains(q))
-        .toList();
+    return _feed.where((e) {
+      final cocokJudul =
+          q.isEmpty || (e['judul']?.toString() ?? '').toLowerCase().contains(q);
+      final cocokBadge =
+          _filterBadge == 'semua' || e['badge']?.toString() == _filterBadge;
+      return cocokJudul && cocokBadge;
+    }).toList();
   }
 
   @override
@@ -472,7 +564,16 @@ class _RekomendasiTabState extends State<_RekomendasiTab>
         const Text('Diurutkan dari kecocokan profilmu (person-job fit)',
             style: TextStyle(color: _abu)),
         const SizedBox(height: 12),
-        _searchBar(_search, onChanged: (_) => setState(() {})),
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(
+              child: _searchBar(_search, onChanged: (_) => setState(() {}))),
+          const SizedBox(width: 8),
+          _dropdownFilter(
+            value: _filterBadge,
+            opsi: _badgeOpsi,
+            onChanged: (v) => setState(() => _filterBadge = v),
+          ),
+        ]),
         if (_feedFiltered.isEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 40),
@@ -509,7 +610,7 @@ class _RekomendasiTabState extends State<_RekomendasiTab>
           padding: const EdgeInsets.all(16),
           child: Column(children: [
             Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              _ikonKotak(),
+              _ikonKotak(judul: item['judul']?.toString()),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
@@ -561,13 +662,26 @@ class _TerdaftarTabState extends State<_TerdaftarTab> {
   List<dynamic> _rows = [];
   bool _loading = true;
   final _search = TextEditingController();
+  String _filterStatus = 'semua';
+
+  static const _statusOpsi = {
+    'semua': 'Semua',
+    'menunggu': 'Menunggu',
+    'selesai': 'Selesai'
+  };
 
   List<dynamic> get _rowsFiltered {
     final q = _search.text.trim().toLowerCase();
-    if (q.isEmpty) return _rows;
-    return _rows
-        .where((e) => (e['judul']?.toString() ?? '').toLowerCase().contains(q))
-        .toList();
+    return _rows.where((e) {
+      final cocokJudul =
+          q.isEmpty || (e['judul']?.toString() ?? '').toLowerCase().contains(q);
+      final status = e['status']?.toString();
+      final cocokStatus = _filterStatus == 'semua' ||
+          (_filterStatus == 'menunggu' && status == 'PENDING') ||
+          (_filterStatus == 'selesai' &&
+              (status == 'ACCEPTED' || status == 'REJECTED'));
+      return cocokJudul && cocokStatus;
+    }).toList();
   }
 
   @override
@@ -611,7 +725,16 @@ class _TerdaftarTabState extends State<_TerdaftarTab> {
             style: TextStyle(
                 fontSize: 24, fontWeight: FontWeight.bold, color: _navy)),
         const SizedBox(height: 12),
-        _searchBar(_search, onChanged: (_) => setState(() {})),
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(
+              child: _searchBar(_search, onChanged: (_) => setState(() {}))),
+          const SizedBox(width: 8),
+          _dropdownFilter(
+            value: _filterStatus,
+            opsi: _statusOpsi,
+            onChanged: (v) => setState(() => _filterStatus = v),
+          ),
+        ]),
         if (_rowsFiltered.isEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 40),
@@ -651,7 +774,7 @@ class _TerdaftarTabState extends State<_TerdaftarTab> {
           child:
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
-              _ikonKotak(size: 46),
+              _ikonKotak(size: 46, judul: r['judul']?.toString()),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
@@ -730,13 +853,27 @@ class _ProyekSayaTabState extends State<_ProyekSayaTab> {
   List<dynamic> _rows = [];
   bool _loading = true;
   final _search = TextEditingController();
+  String _filterKuota = 'semua';
+
+  static const _kuotaOpsi = {
+    'semua': 'Semua',
+    'penuh': 'Penuh',
+    'belum': 'Belum Penuh'
+  };
 
   List<dynamic> get _rowsFiltered {
     final q = _search.text.trim().toLowerCase();
-    if (q.isEmpty) return _rows;
-    return _rows
-        .where((e) => (e['judul']?.toString() ?? '').toLowerCase().contains(q))
-        .toList();
+    return _rows.where((e) {
+      final cocokJudul =
+          q.isEmpty || (e['judul']?.toString() ?? '').toLowerCase().contains(q);
+      final terisi = (e['terisi'] as num?)?.toInt() ?? 0;
+      final totalKuota = (e['totalKuota'] as num?)?.toInt() ?? 0;
+      final penuh = totalKuota > 0 && terisi >= totalKuota;
+      final cocokKuota = _filterKuota == 'semua' ||
+          (_filterKuota == 'penuh' && penuh) ||
+          (_filterKuota == 'belum' && !penuh);
+      return cocokJudul && cocokKuota;
+    }).toList();
   }
 
   @override
@@ -791,7 +928,16 @@ class _ProyekSayaTabState extends State<_ProyekSayaTab> {
           ),
         ]),
         const SizedBox(height: 12),
-        _searchBar(_search, onChanged: (_) => setState(() {})),
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(
+              child: _searchBar(_search, onChanged: (_) => setState(() {}))),
+          const SizedBox(width: 8),
+          _dropdownFilter(
+            value: _filterKuota,
+            opsi: _kuotaOpsi,
+            onChanged: (v) => setState(() => _filterKuota = v),
+          ),
+        ]),
         if (_rowsFiltered.isEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 40),
@@ -825,7 +971,7 @@ class _ProyekSayaTabState extends State<_ProyekSayaTab> {
         padding: const EdgeInsets.all(16),
         child: Column(children: [
           Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            _ikonKotak(),
+            _ikonKotak(judul: r['judul']?.toString()),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
@@ -1031,7 +1177,7 @@ class _DetailProjectPageState extends State<DetailProjectPage> {
       bottomNavigationBar: _bar(p, roles),
       body: ListView(padding: const EdgeInsets.all(16), children: [
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          _ikonKotak(size: 60),
+          _ikonKotak(size: 60, judul: p['judul']?.toString()),
           const SizedBox(width: 14),
           Expanded(
             child:
@@ -1115,18 +1261,21 @@ class _DetailProjectPageState extends State<DetailProjectPage> {
         Text(p['deskripsi']?.toString() ?? '',
             style: const TextStyle(fontSize: 15, height: 1.4, color: _navy)),
         const SizedBox(height: 20),
-        _judulBantuan('PERAN DIBUTUHKAN', () => _jelaskanPeranDibutuhkan(context)),
+        _judulBantuan(
+            'PERAN DIBUTUHKAN', () => _jelaskanPeranDibutuhkan(context)),
         const SizedBox(height: 10),
         ...roles.map((r) => _barisRole(r as Map)),
         const SizedBox(height: 16),
         if (skills.isNotEmpty) ...[
-          _judulBantuan('SKILL DIBUTUHKAN', () => dsJelaskanAtribut(context, 'proyekSkill')),
+          _judulBantuan('SKILL DIBUTUHKAN',
+              () => dsJelaskanAtribut(context, 'proyekSkill')),
           const SizedBox(height: 10),
           _chipList(skills),
           const SizedBox(height: 20),
         ],
         if (minat.isNotEmpty) ...[
-          _judulBantuan('MINAT / BIDANG', () => dsJelaskanAtribut(context, 'proyekMinat')),
+          _judulBantuan('MINAT / BIDANG',
+              () => dsJelaskanAtribut(context, 'proyekMinat')),
           const SizedBox(height: 10),
           _chipList(minat),
           const SizedBox(height: 20),
@@ -1412,7 +1561,7 @@ class _KelolaProjectPageState extends State<KelolaProjectPage> {
         onRefresh: _muat,
         child: ListView(padding: const EdgeInsets.all(16), children: [
           Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            _ikonKotak(size: 56),
+            _ikonKotak(size: 56, judul: p?['judul']?.toString()),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
@@ -1841,31 +1990,51 @@ class _PendaftarProfilPageState extends State<PendaftarProfilPage> {
         ],
         if ((d['bio']?.toString() ?? '').isNotEmpty) ...[
           const SizedBox(height: 20),
-          Row(children: [_sectionTitle('BIO'), const SizedBox(width: 4), dsBantuanIkon(context, 'bio')]),
+          Row(children: [
+            _sectionTitle('BIO'),
+            const SizedBox(width: 4),
+            dsBantuanIkon(context, 'bio')
+          ]),
           const SizedBox(height: 8),
           Text(d['bio'].toString(), style: const TextStyle(color: _navy)),
         ],
         if (skill.isNotEmpty) ...[
           const SizedBox(height: 20),
-          Row(children: [_sectionTitle('SKILL'), const SizedBox(width: 4), dsBantuanIkon(context, 'skill')]),
+          Row(children: [
+            _sectionTitle('SKILL'),
+            const SizedBox(width: 4),
+            dsBantuanIkon(context, 'skill')
+          ]),
           const SizedBox(height: 10),
           _chipList(skill),
         ],
         if (minat.isNotEmpty) ...[
           const SizedBox(height: 20),
-          Row(children: [_sectionTitle('MINAT / BIDANG'), const SizedBox(width: 4), dsBantuanIkon(context, 'minat')]),
+          Row(children: [
+            _sectionTitle('MINAT / BIDANG'),
+            const SizedBox(width: 4),
+            dsBantuanIkon(context, 'minat')
+          ]),
           const SizedBox(height: 10),
           _chipList(minat),
         ],
         if (gayaPeran.isNotEmpty) ...[
           const SizedBox(height: 20),
-          Row(children: [_sectionTitle('GAYA KERJA & PERAN'), const SizedBox(width: 4), dsBantuanIkon(context, 'gayaKerjaPeran')]),
+          Row(children: [
+            _sectionTitle('GAYA KERJA & PERAN'),
+            const SizedBox(width: 4),
+            dsBantuanIkon(context, 'gayaKerjaPeran')
+          ]),
           const SizedBox(height: 10),
           _chipList(gayaPeran),
         ],
         if (waktu.isNotEmpty) ...[
           const SizedBox(height: 20),
-          Row(children: [_sectionTitle('KETERSEDIAAN WAKTU'), const SizedBox(width: 4), dsBantuanIkon(context, 'ketersediaanWaktu')]),
+          Row(children: [
+            _sectionTitle('KETERSEDIAAN WAKTU'),
+            const SizedBox(width: 4),
+            dsBantuanIkon(context, 'ketersediaanWaktu')
+          ]),
           const SizedBox(height: 10),
           DsExpandableChips(items: waktu),
         ],
@@ -1945,7 +2114,8 @@ class _BuatProjectPageState extends State<BuatProjectPage> {
 
   int get _pengalamanReq => _pengalaman == null
       ? 0
-      : _pengalamanOpsi.indexOf(_pengalaman!) + 1; // Pemula=1, Menengah=2, Mahir=3
+      : _pengalamanOpsi.indexOf(_pengalaman!) +
+          1; // Pemula=1, Menengah=2, Mahir=3
 
   @override
   void initState() {
@@ -2023,7 +2193,11 @@ class _BuatProjectPageState extends State<BuatProjectPage> {
         padding: const EdgeInsets.only(bottom: 8, top: 20),
         child: bantuanKey == null
             ? _sectionTitle(t)
-            : Row(children: [_sectionTitle(t), const SizedBox(width: 4), dsBantuanIkon(context, bantuanKey)]),
+            : Row(children: [
+                _sectionTitle(t),
+                const SizedBox(width: 4),
+                dsBantuanIkon(context, bantuanKey)
+              ]),
       );
 
   Widget _field(TextEditingController c, String hint, {int maxLines = 1}) =>
@@ -2050,7 +2224,10 @@ class _BuatProjectPageState extends State<BuatProjectPage> {
         spacing: 8,
         runSpacing: 8,
         children: opsi
-            .map((o) => DsChip(label: o, aktif: aktif(o), onTap: () => setState(() => onTap(o))))
+            .map((o) => DsChip(
+                label: o,
+                aktif: aktif(o),
+                onTap: () => setState(() => onTap(o))))
             .toList(),
       );
 
@@ -2187,8 +2364,9 @@ class _BuatProjectPageState extends State<BuatProjectPage> {
             _label('KETERSEDIAAN JADWAL KEGIATAN', bantuanKey: 'proyekJadwal'),
             DsJadwalGrid(
               value: _ketersediaan,
-              onToggle: (slot) => setState(
-                  () => _ketersediaan.contains(slot) ? _ketersediaan.remove(slot) : _ketersediaan.add(slot)),
+              onToggle: (slot) => setState(() => _ketersediaan.contains(slot)
+                  ? _ketersediaan.remove(slot)
+                  : _ketersediaan.add(slot)),
             ),
           ]),
     );
