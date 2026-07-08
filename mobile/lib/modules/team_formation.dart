@@ -76,6 +76,56 @@ Widget _sectionTitle(String t) => Padding(
       child: Text(t, style: const TextStyle(color: _navy, fontSize: 15, fontWeight: FontWeight.w700)),
     );
 
+// Penjelasan "Fungsi Kerja Tim" buat user awam — jelaskan konsepnya (6 fungsi,
+// arti titik hijau/abu) tanpa menyebut algoritma penugasan di baliknya.
+void _jelaskanFungsiKerjaTim(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: const Text('Apa itu Fungsi Kerja Tim?', style: TextStyle(fontWeight: FontWeight.bold, color: _navy)),
+      content: const Text(
+        'Tim yang seimbang biasanya butuh 6 fungsi kerja berbeda: Organizer, Doer, Challenger, '
+        'Innovator, Team Builder, dan Connector.\n\n'
+        'Sistem otomatis melihat hasil kuesioner TREO tiap anggota, lalu menandai siapa yang '
+        'paling cocok memegang tiap fungsi itu.\n\n'
+        'Titik hijau artinya fungsi itu sudah ada anggota yang memegangnya. Titik abu-abu artinya '
+        'belum ada anggota yang cocok untuk fungsi tersebut.\n\n'
+        'Makin banyak fungsi yang terisi, makin seimbang tim kalian.',
+        style: TextStyle(color: _navy, height: 1.5),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Mengerti', style: TextStyle(fontWeight: FontWeight.bold))),
+      ],
+    ),
+  );
+}
+
+// Penjelasan "Analitik Tim" buat user awam — jelaskan 3 ukurannya tanpa
+// menyebut rumus/bobot perhitungan di baliknya.
+void _jelaskanAnalitikTim(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: const Text('Apa itu Analitik Tim?', style: TextStyle(fontWeight: FontWeight.bold, color: _navy)),
+      content: const Text(
+        'Analitik tim terdiri dari tiga ukuran:\n\n'
+        'Kecocokan Fungsi Teknis, seberapa cocok kemampuan teknis anggota tim (seperti Data Analyst, '
+        'Backend Developer, dan peran teknis lain) dengan kebutuhan tim.\n\n'
+        'Kecocokan Fungsi Kerja, seberapa seimbang peran kerja tim dilihat dari hasil kuesioner TREO tiap '
+        'anggota (Organizer, Doer, Challenger, dan seterusnya).\n\n'
+        'Skor Keseimbangan Tim, gabungan dari kedua ukuran di atas yang dihitung di level tim secara '
+        'keseluruhan, menunjukkan seberapa siap tim kalian menyelesaikan tugas.',
+        style: TextStyle(color: _navy, height: 1.5),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Mengerti', style: TextStyle(fontWeight: FontWeight.bold))),
+      ],
+    ),
+  );
+}
+
 class _EmptyState extends StatelessWidget {
   final IconData icon;
   final String judul;
@@ -668,7 +718,9 @@ class _TimSayaTabState extends State<_TimSayaTab> with AutomaticKeepAliveClientM
     final isFinal = t['status'] == 'FINAL';
     final aktif = status == 'ACCEPTED';
     final pending = status == 'PENDING';
-    final tappable = aktif;
+    // Lobi tetap bisa dibuka walau masih menunggu persetujuan (sama seperti saat
+    // menjelajah dari daftar lomba) — hanya dikunci kalau sudah keluar/dikeluarkan.
+    final tappable = aktif || pending;
 
     final String statusLabel;
     final Color fg;
@@ -932,20 +984,7 @@ class _BuatLombaPageState extends State<BuatLombaPage> {
   Widget _pillGroup(List<String> opsi, String? selected, void Function(String) onTap) => Wrap(
         spacing: 8,
         runSpacing: 8,
-        children: opsi.map((o) {
-          final sel = selected == o;
-          return GestureDetector(
-            onTap: () => onTap(o),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-              decoration: BoxDecoration(
-                color: sel ? _biru : const Color(0xFFEFF3FB),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(o, style: TextStyle(color: sel ? Colors.white : _navy, fontSize: 12, fontWeight: FontWeight.w600)),
-            ),
-          );
-        }).toList(),
+        children: opsi.map((o) => DsChip(label: o, aktif: selected == o, onTap: () => onTap(o))).toList(),
       );
 
   @override
@@ -981,20 +1020,12 @@ class _BuatLombaPageState extends State<BuatLombaPage> {
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: _kategoriOpsi.map((k) {
-                  final sel = _kategori.contains(k);
-                  return GestureDetector(
-                    onTap: () => setState(() => sel ? _kategori.remove(k) : _kategori.add(k)),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: sel ? _biru : const Color(0xFFEFF3FB),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(k, style: TextStyle(color: sel ? Colors.white : _navy, fontSize: 12, fontWeight: FontWeight.w600)),
-                    ),
-                  );
-                }).toList(),
+                children: _kategoriOpsi
+                    .map((k) => DsChip(
+                        label: k,
+                        aktif: _kategori.contains(k),
+                        onTap: () => setState(() => _kategori.contains(k) ? _kategori.remove(k) : _kategori.add(k))))
+                    .toList(),
               ),
             ]),
             _card(children: [
@@ -1517,17 +1548,11 @@ class _BuatLobiPageState extends State<BuatLobiPage> {
                   children: _domainRole.map((r) {
                     final aktif = sementara.contains(r);
                     final penuh = _kapasitas != null && sementara.length >= _kapasitas! && !aktif;
-                    return FilterChip(
-                      label: Text(r),
-                      selected: aktif,
-                      onSelected: penuh
-                          ? null
-                          : (v) => setSheet(() => v ? sementara.add(r) : sementara.remove(r)),
-                      selectedColor: const Color(0xFFEFF3FB),
-                      checkmarkColor: _biru,
-                      labelStyle: TextStyle(
-                          color: penuh ? _abu : (aktif ? _biru : _navy),
-                          fontWeight: aktif ? FontWeight.w700 : FontWeight.w500),
+                    return DsChip(
+                      label: r,
+                      aktif: aktif,
+                      enabled: !penuh,
+                      onTap: () => setSheet(() => aktif ? sementara.remove(r) : sementara.add(r)),
                     );
                   }).toList(),
                 ),
@@ -1657,13 +1682,10 @@ class _BuatLobiPageState extends State<BuatLobiPage> {
                   spacing: 8,
                   runSpacing: 8,
                   children: opsiKapasitas.map((n) {
-                    final aktif = _kapasitas == n;
-                    return ChoiceChip(
-                      label: Text('$n'),
-                      selected: aktif,
-                      onSelected: (_) => setState(() => _kapasitas = n),
-                      selectedColor: const Color(0xFFEFF3FB),
-                      labelStyle: TextStyle(color: aktif ? _biru : _navy, fontWeight: FontWeight.w700),
+                    return DsChip(
+                      label: '$n',
+                      aktif: _kapasitas == n,
+                      onTap: () => setState(() => _kapasitas = n),
                     );
                   }).toList(),
                 ),
@@ -1983,13 +2005,10 @@ class _EditTimPageState extends State<EditTimPage> {
                   runSpacing: 8,
                   children: _domainRole.map((r) {
                     final aktif = sementara.contains(r);
-                    return FilterChip(
-                      label: Text(r),
-                      selected: aktif,
-                      onSelected: (v) => setSheet(() => v ? sementara.add(r) : sementara.remove(r)),
-                      selectedColor: const Color(0xFFEFF3FB),
-                      checkmarkColor: _biru,
-                      labelStyle: TextStyle(color: aktif ? _biru : _navy, fontWeight: aktif ? FontWeight.w700 : FontWeight.w500),
+                    return DsChip(
+                      label: r,
+                      aktif: aktif,
+                      onTap: () => setSheet(() => aktif ? sementara.remove(r) : sementara.add(r)),
                     );
                   }).toList(),
                 ),
@@ -2293,7 +2312,112 @@ class _EditTimPageState extends State<EditTimPage> {
             ),
           ],
         ]),
+        if (!isFinal)
+          _card(children: [
+            _label('Zona Berbahaya'),
+            const SizedBox(height: 8),
+            const Text(
+              'Tim hanya bisa dihapus selama belum ada anggota lain yang bergabung dan tidak ada pengajuan yang menunggu keputusan.',
+              style: TextStyle(color: _abu, fontSize: 12, height: 1.4),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _busy ? null : _hapusTim,
+                icon: const Icon(Icons.delete_outline, color: Colors.red),
+                label: const Text('Hapus Tim', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Color(0xFFFCA5A5)),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+                ),
+              ),
+            ),
+          ]),
       ],
+    );
+  }
+
+  // Dijalankan setiap kali tombol "Hapus Tim" ditekan — cek alasan yang mungkin
+  // menghalangi (bukan cuma nonaktifkan tombolnya) supaya pembuat tim paham
+  // langkah apa yang perlu diambil dulu sebelum bisa menghapus.
+  Future<void> _hapusTim() async {
+    final l = _lobi!;
+    if (l['status'] != 'OPEN') {
+      _jelaskanTidakBisaHapus(
+        'Tim tidak bisa dihapus',
+        l['status'] == 'FINAL'
+            ? 'Tim ini sudah final dan tidak bisa dihapus lagi.'
+            : 'Tim sedang dalam proses finalisasi. Batalkan atau selesaikan dulu prosesnya sebelum menghapus tim.',
+      );
+      return;
+    }
+    final anggota = (l['anggota'] as List).cast<Map<String, dynamic>>();
+    final anggotaLain = anggota.length - 1; // pembuat tim selalu ikut sebagai anggota ACCEPTED
+    if (anggotaLain > 0) {
+      _jelaskanTidakBisaHapus(
+        'Tim masih punya anggota',
+        'Masih ada $anggotaLain anggota lain di tim ini. Keluarkan semua anggota lewat daftar "Anggota Tim" di atas sebelum menghapus tim.',
+      );
+      return;
+    }
+    final pendingCount = (l['pendingCount'] as num?)?.toInt() ?? 0;
+    if (pendingCount > 0) {
+      _jelaskanTidakBisaHapus(
+        'Masih ada pengajuan menunggu',
+        'Ada $pendingCount pengajuan yang belum diputuskan. Terima atau tolak semuanya dulu lewat halaman "Kelola Pengajuan" sebelum menghapus tim.',
+      );
+      return;
+    }
+
+    final konfirmasi = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Hapus tim ini?'),
+        content: const Text(
+            'Tim akan dihapus permanen dan tidak bisa dikembalikan. Lombanya tetap ada, kamu bisa membuat tim baru kapan saja.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Hapus', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+    if (konfirmasi != true) return;
+
+    setState(() => _busy = true);
+    try {
+      final res = await apiDelete('/team-formation/lobi/${widget.lobiId}');
+      if (res is Map && res['error'] != null) {
+        if (mounted) _snack(context, '${res['error']}', error: true);
+        return;
+      }
+      _berubah = true;
+      if (mounted) {
+        _snack(context, 'Tim berhasil dihapus');
+        Navigator.pop(context, true);
+      }
+    } catch (e) {
+      if (mounted) _snack(context, 'Gagal menghapus tim: $e', error: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  void _jelaskanTidakBisaHapus(String judul, String pesan) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(judul, style: const TextStyle(fontWeight: FontWeight.bold, color: _navy)),
+        content: Text(pesan, style: const TextStyle(color: _navy, height: 1.5)),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Mengerti', style: TextStyle(fontWeight: FontWeight.bold))),
+        ],
+      ),
     );
   }
 
@@ -2617,7 +2741,18 @@ class _DetailLobiPageState extends State<DetailLobiPage> {
             ),
 
             if (_treoTim != null) ...[
-              _sectionTitle('Kondisi Tim Saat Ini'),
+              Row(children: [
+                _sectionTitle('Kondisi Tim Saat Ini'),
+                const SizedBox(width: 4),
+                InkWell(
+                  onTap: () => _jelaskanAnalitikTim(context),
+                  customBorder: const CircleBorder(),
+                  child: const Padding(
+                    padding: EdgeInsets.all(4),
+                    child: Icon(Icons.help_outline, size: 16, color: _abu),
+                  ),
+                ),
+              ]),
               Card(
                 margin: const EdgeInsets.symmetric(vertical: 6),
                 child: Padding(
@@ -3146,7 +3281,18 @@ class _DetailLobiPageState extends State<DetailLobiPage> {
               ),
             ],
 
-            _sectionTitle('FUNGSI KERJA TIM'),
+            Row(children: [
+              _sectionTitle('FUNGSI KERJA TIM'),
+              const SizedBox(width: 4),
+              InkWell(
+                onTap: () => _jelaskanFungsiKerjaTim(context),
+                customBorder: const CircleBorder(),
+                child: const Padding(
+                  padding: EdgeInsets.all(4),
+                  child: Icon(Icons.help_outline, size: 16, color: _abu),
+                ),
+              ),
+            ]),
             GridView.count(
               crossAxisCount: 2,
               shrinkWrap: true,
@@ -3202,7 +3348,18 @@ class _DetailLobiPageState extends State<DetailLobiPage> {
             ),
 
             if (_treoTim != null) ...[
-              _sectionTitle('ANALITIK TIM'),
+              Row(children: [
+                _sectionTitle('ANALITIK TIM'),
+                const SizedBox(width: 4),
+                InkWell(
+                  onTap: () => _jelaskanAnalitikTim(context),
+                  customBorder: const CircleBorder(),
+                  child: const Padding(
+                    padding: EdgeInsets.all(4),
+                    child: Icon(Icons.help_outline, size: 16, color: _abu),
+                  ),
+                ),
+              ]),
               Card(
                 margin: const EdgeInsets.symmetric(vertical: 6),
                 child: Padding(
@@ -3594,16 +3751,25 @@ class _TreoQuestionnairePageState extends State<TreoQuestionnairePage> {
     }
     if (mounted) {
       _snack(context, 'Kuesioner TREO tersimpan');
-      Navigator.pop(context);
+      // pop(true) supaya alur onboarding (auth.dart) bisa membedakan ini dari
+      // pop akibat tombol back (yang tidak bawa nilai / null).
+      Navigator.pop(context, true);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    return Scaffold(
+    // Saat dipakai di alur onboarding (onLewati != null), tombol/gestur back
+    // sengaja dimatikan — tidak ada "kembali" yang masuk akal di titik ini
+    // (akun sudah dibuat & login), satu-satunya jalan maju adalah Simpan/Lewati.
+    final saatOnboarding = widget.onLewati != null;
+    return PopScope(
+      canPop: !saatOnboarding,
+      child: Scaffold(
       appBar: AppBar(
         title: const Text('Kuesioner TREO'),
+        automaticallyImplyLeading: !saatOnboarding,
         actions: widget.onLewati == null
             ? null
             : [
@@ -3691,6 +3857,7 @@ class _TreoQuestionnairePageState extends State<TreoQuestionnairePage> {
           ),
         ),
       ),
+      ),
     );
   }
 }
@@ -3736,10 +3903,15 @@ class _TeamMemberProfilePageState extends State<TeamMemberProfilePage> {
     }
   }
 
-  Widget _baris(String label, String nilai) => Padding(
+  Widget _baris(String label, String nilai, {String? bantuanKey}) => Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(children: [
-          Expanded(child: Text(label, style: const TextStyle(color: _abu))),
+          Expanded(
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Text(label, style: const TextStyle(color: _abu)),
+              if (bantuanKey != null) dsBantuanIkon(context, bantuanKey, size: 14),
+            ]),
+          ),
           Text(nilai, style: const TextStyle(color: _navy, fontWeight: FontWeight.w600)),
         ]),
       );
@@ -3849,32 +4021,32 @@ class _TeamMemberProfilePageState extends State<TeamMemberProfilePage> {
         ),
         if (bio.isNotEmpty) ...[
           const SizedBox(height: 18),
-          _sectionTitle('BIO'),
+          Row(children: [_sectionTitle('BIO'), const SizedBox(width: 4), dsBantuanIkon(context, 'bio')]),
           const SizedBox(height: 10),
           Text(bio, style: const TextStyle(color: _navy, height: 1.4)),
         ],
-        _sectionTitle('MINAT'),
+        Row(children: [_sectionTitle('MINAT'), const SizedBox(width: 4), dsBantuanIkon(context, 'minat')]),
         const SizedBox(height: 10),
         _chipList(((p['minatTag'] as List?) ?? []).cast<String>()),
         const SizedBox(height: 18),
-        _sectionTitle('SKILL'),
+        Row(children: [_sectionTitle('SKILL'), const SizedBox(width: 4), dsBantuanIkon(context, 'skill')]),
         const SizedBox(height: 10),
         _chipList(((p['skill'] as List?) ?? []).cast<String>()),
         const SizedBox(height: 16),
         Card(
           margin: EdgeInsets.zero,
           child: Column(children: [
-            _baris('Pengalaman', _teksPengalaman(p['pengalaman'])),
+            _baris('Pengalaman', _teksPengalaman(p['pengalaman']), bantuanKey: 'pengalaman'),
             const Divider(height: 1),
-            _baris('Gaya kerja', p['gayaKerja']?.toString() ?? '-'),
+            _baris('Gaya kerja', p['gayaKerja']?.toString() ?? '-', bantuanKey: 'gayaKerja'),
             const Divider(height: 1),
-            _baris('Preferensi peran', p['preferensiPeran']?.toString() ?? '-'),
+            _baris('Preferensi peran', p['preferensiPeran']?.toString() ?? '-', bantuanKey: 'preferensiPeran'),
           ]),
         ),
         const SizedBox(height: 18),
-        _sectionTitle('KETERSEDIAAN WAKTU'),
+        Row(children: [_sectionTitle('KETERSEDIAAN WAKTU'), const SizedBox(width: 4), dsBantuanIkon(context, 'ketersediaanWaktu')]),
         const SizedBox(height: 10),
-        _chipList(((p['ketersediaanWaktu'] as List?) ?? []).cast<String>()),
+        DsExpandableChips(items: ((p['ketersediaanWaktu'] as List?) ?? []).cast<String>()),
         const SizedBox(height: 18),
         _sectionTitle('TREO ROLE TEAM'),
         const SizedBox(height: 10),

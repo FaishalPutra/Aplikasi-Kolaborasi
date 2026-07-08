@@ -99,6 +99,103 @@ Widget _sectionTitle(String t) => Text(t,
     style: const TextStyle(
         color: _biru, fontWeight: FontWeight.bold, letterSpacing: 0.5));
 
+// Judul section "RINCIAN KECOCOKAN" + ikon bantuan kecil buat jelasin skornya ke
+// user awam, dipakai konsisten di Detail Proyek & Profil Pendaftar.
+Widget _judulRincianKecocokan(BuildContext context) => Row(children: [
+      _sectionTitle('RINCIAN KECOCOKAN'),
+      const SizedBox(width: 4),
+      InkWell(
+        onTap: () => _jelaskanSkorProyek(context),
+        customBorder: const CircleBorder(),
+        child: const Padding(
+          padding: EdgeInsets.all(4),
+          child: Icon(Icons.help_outline, size: 16, color: _abu),
+        ),
+      ),
+    ]);
+
+// Penjelasan skor buat user awam — jelaskan konsepnya saja, tanpa rumus/bobot.
+void _jelaskanSkorProyek(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: const Text('Kenapa skor ini?', style: TextStyle(fontWeight: FontWeight.bold, color: _navy)),
+      content: const Text(
+        'Skor kecocokan dilihat dari beberapa hal: skill, minat, gaya kerja, dan pengalaman.\n\n'
+        'Untuk skill dan pengalaman, dilihat dari seberapa besar kemampuanmu memenuhi kebutuhan '
+        'peran di proyek ini.\n\n'
+        'Untuk minat dan gaya kerja, dilihat dari seberapa cocok kamu dengan suasana dan tujuan '
+        'proyeknya.\n\n'
+        'Semuanya digabung jadi satu skor akhir yang kamu lihat di atas.',
+        style: TextStyle(color: _navy, height: 1.5),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Mengerti', style: TextStyle(fontWeight: FontWeight.bold))),
+      ],
+    ),
+  );
+}
+
+// Judul section generik + ikon bantuan kecil, dipakai buat "DESKRIPSI" dan
+// "PERAN DIBUTUHKAN" baik di Detail Proyek maupun form Buat Proyek.
+Widget _judulBantuan(String judul, VoidCallback onTap) => Row(children: [
+      _sectionTitle(judul),
+      const SizedBox(width: 4),
+      InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: const Padding(
+          padding: EdgeInsets.all(4),
+          child: Icon(Icons.help_outline, size: 16, color: _abu),
+        ),
+      ),
+    ]);
+
+void _jelaskanDeskripsiProyek(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: const Text('Apa isi Deskripsi?', style: TextStyle(fontWeight: FontWeight.bold, color: _navy)),
+      content: const Text(
+        'Bagian ini berisi penjelasan dari pembuat proyek, seperti latar belakang, tujuan, atau '
+        'hal-hal yang perlu diketahui sebelum ikut bergabung.\n\n'
+        'Kalau kamu yang membuat proyek, tulis deskripsi yang jelas supaya calon anggota tahu '
+        'persis apa yang akan mereka kerjakan dan apa yang kamu harapkan dari mereka.',
+        style: TextStyle(color: _navy, height: 1.5),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Mengerti', style: TextStyle(fontWeight: FontWeight.bold))),
+      ],
+    ),
+  );
+}
+
+void _jelaskanPeranDibutuhkan(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: const Text('Apa saja peran ini?', style: TextStyle(fontWeight: FontWeight.bold, color: _navy)),
+      content: const Text(
+        'Setiap proyek punya beberapa peran yang bisa dipilih anggota saat mendaftar:\n\n'
+        'Leader/Coordinator: memimpin dan mengatur jalannya proyek, membagi tugas, dan memastikan '
+        'semua berjalan sesuai rencana.\n\n'
+        'Contributor/Executor: mengerjakan tugas teknis secara langsung, jadi tulang punggung '
+        'eksekusi proyek.\n\n'
+        'Supporter/Facilitator: membantu dari sisi pendukung, seperti komunikasi, dokumentasi, '
+        'atau menjaga kelancaran kerja sama tim.\n\n'
+        'Pilih atau tawarkan peran yang paling sesuai dengan kebutuhan proyekmu.',
+        style: TextStyle(color: _navy, height: 1.5),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Mengerti', style: TextStyle(fontWeight: FontWeight.bold))),
+      ],
+    ),
+  );
+}
+
 // Bar pencarian dipakai di 3 tab (Rekomendasi/Terdaftar/Proyek Saya) — filter lokal by judul.
 Widget _searchBar(TextEditingController c,
         {String hint = 'Cari judul proyek...',
@@ -1013,23 +1110,23 @@ class _DetailProjectPageState extends State<DetailProjectPage> {
           ),
           const SizedBox(height: 16),
         ],
-        _sectionTitle('DESKRIPSI'),
+        _judulBantuan('DESKRIPSI', () => _jelaskanDeskripsiProyek(context)),
         const SizedBox(height: 8),
         Text(p['deskripsi']?.toString() ?? '',
             style: const TextStyle(fontSize: 15, height: 1.4, color: _navy)),
         const SizedBox(height: 20),
-        _sectionTitle('PERAN DIBUTUHKAN'),
+        _judulBantuan('PERAN DIBUTUHKAN', () => _jelaskanPeranDibutuhkan(context)),
         const SizedBox(height: 10),
         ...roles.map((r) => _barisRole(r as Map)),
         const SizedBox(height: 16),
         if (skills.isNotEmpty) ...[
-          _sectionTitle('SKILL DIBUTUHKAN'),
+          _judulBantuan('SKILL DIBUTUHKAN', () => dsJelaskanAtribut(context, 'proyekSkill')),
           const SizedBox(height: 10),
           _chipList(skills),
           const SizedBox(height: 20),
         ],
         if (minat.isNotEmpty) ...[
-          _sectionTitle('MINAT / BIDANG'),
+          _judulBantuan('MINAT / BIDANG', () => dsJelaskanAtribut(context, 'proyekMinat')),
           const SizedBox(height: 10),
           _chipList(minat),
           const SizedBox(height: 20),
@@ -1037,21 +1134,15 @@ class _DetailProjectPageState extends State<DetailProjectPage> {
         if (jadwal.isNotEmpty) ...[
           Row(children: [
             _sectionTitle('JADWAL KEGIATAN'),
-            const SizedBox(width: 8),
-            const Text('(bukan penentu skor, hanya syarat lolos)',
-                style: TextStyle(color: Color(0xFFB0B8C4), fontSize: 11)),
+            const SizedBox(width: 4),
+            dsBantuanIkon(context, 'proyekJadwal'),
           ]),
           const SizedBox(height: 10),
-          _chipList(jadwal),
+          DsExpandableChips(items: jadwal),
           const SizedBox(height: 20),
         ],
         if (breakdown != null) ...[
-          Row(children: [
-            _sectionTitle('RINCIAN KECOCOKAN'),
-            const SizedBox(width: 8),
-            const Text('person-job fit',
-                style: TextStyle(color: Color(0xFFB0B8C4))),
-          ]),
+          _judulRincianKecocokan(context),
           const SizedBox(height: 10),
           _rincianKecocokan(breakdown),
         ],
@@ -1750,37 +1841,37 @@ class _PendaftarProfilPageState extends State<PendaftarProfilPage> {
         ],
         if ((d['bio']?.toString() ?? '').isNotEmpty) ...[
           const SizedBox(height: 20),
-          _sectionTitle('BIO'),
+          Row(children: [_sectionTitle('BIO'), const SizedBox(width: 4), dsBantuanIkon(context, 'bio')]),
           const SizedBox(height: 8),
           Text(d['bio'].toString(), style: const TextStyle(color: _navy)),
         ],
         if (skill.isNotEmpty) ...[
           const SizedBox(height: 20),
-          _sectionTitle('SKILL'),
+          Row(children: [_sectionTitle('SKILL'), const SizedBox(width: 4), dsBantuanIkon(context, 'skill')]),
           const SizedBox(height: 10),
           _chipList(skill),
         ],
         if (minat.isNotEmpty) ...[
           const SizedBox(height: 20),
-          _sectionTitle('MINAT / BIDANG'),
+          Row(children: [_sectionTitle('MINAT / BIDANG'), const SizedBox(width: 4), dsBantuanIkon(context, 'minat')]),
           const SizedBox(height: 10),
           _chipList(minat),
         ],
         if (gayaPeran.isNotEmpty) ...[
           const SizedBox(height: 20),
-          _sectionTitle('GAYA KERJA & PERAN'),
+          Row(children: [_sectionTitle('GAYA KERJA & PERAN'), const SizedBox(width: 4), dsBantuanIkon(context, 'gayaKerjaPeran')]),
           const SizedBox(height: 10),
           _chipList(gayaPeran),
         ],
         if (waktu.isNotEmpty) ...[
           const SizedBox(height: 20),
-          _sectionTitle('KETERSEDIAAN WAKTU'),
+          Row(children: [_sectionTitle('KETERSEDIAAN WAKTU'), const SizedBox(width: 4), dsBantuanIkon(context, 'ketersediaanWaktu')]),
           const SizedBox(height: 10),
-          _chipList(waktu),
+          DsExpandableChips(items: waktu),
         ],
         if (breakdown != null) ...[
           const SizedBox(height: 20),
-          _sectionTitle('RINCIAN KECOCOKAN'),
+          _judulRincianKecocokan(context),
           const SizedBox(height: 10),
           _rincianKecocokan(breakdown),
         ],
@@ -1806,8 +1897,10 @@ class _BuatProjectPageState extends State<BuatProjectPage> {
   final Set<String> _skill = {};
   // 6 atribut yang dipakai Affinity Engine (sama seperti profil mahasiswa).
   final Set<String> _minat = {};
-  String _gayaKerja = 'Fleksibel';
-  String _pengalaman = 'Menengah';
+  // Sengaja tidak diberi nilai default — supaya user tidak melewatkan atribut
+  // ini tanpa sadar (ke-pilih otomatis lalu tidak diubah sama sekali).
+  String? _gayaKerja;
+  String? _pengalaman;
   final Set<String> _ketersediaan = {};
   bool _loading = false;
   bool _loadingAwal = false;
@@ -1847,20 +1940,12 @@ class _BuatProjectPageState extends State<BuatProjectPage> {
   ];
   final _gayaKerjaOpsi = const ['Terstruktur', 'Fleksibel'];
   final _pengalamanOpsi = const ['Pemula', 'Menengah', 'Mahir'];
-  final _waktuOpsi = const [
-    'Senin malam',
-    'Selasa sore',
-    'Rabu sore',
-    'Kamis malam',
-    'Jumat sore',
-    'Sabtu pagi',
-    'Minggu malam',
-  ];
 
   bool get _valid => _judul.text.trim().isNotEmpty && _peran.isNotEmpty;
 
-  int get _pengalamanReq =>
-      _pengalamanOpsi.indexOf(_pengalaman) + 1; // Pemula=1, Menengah=2, Mahir=3
+  int get _pengalamanReq => _pengalaman == null
+      ? 0
+      : _pengalamanOpsi.indexOf(_pengalaman!) + 1; // Pemula=1, Menengah=2, Mahir=3
 
   @override
   void initState() {
@@ -1905,7 +1990,7 @@ class _BuatProjectPageState extends State<BuatProjectPage> {
         'deskripsi': _deskripsi.text.trim(),
         'minatTag': _minat.toList(),
         'gayaKerja': _gayaKerja,
-        'pengalamanReq': _pengalamanReq,
+        'pengalamanReq': _pengalaman == null ? null : _pengalamanReq,
         'jadwalSlot': _ketersediaan.toList(),
         'roles': _peran.entries
             .map((e) => {
@@ -1934,9 +2019,11 @@ class _BuatProjectPageState extends State<BuatProjectPage> {
     }
   }
 
-  Widget _label(String t) => Padding(
+  Widget _label(String t, {String? bantuanKey}) => Padding(
         padding: const EdgeInsets.only(bottom: 8, top: 20),
-        child: _sectionTitle(t),
+        child: bantuanKey == null
+            ? _sectionTitle(t)
+            : Row(children: [_sectionTitle(t), const SizedBox(width: 4), dsBantuanIkon(context, bantuanKey)]),
       );
 
   Widget _field(TextEditingController c, String hint, {int maxLines = 1}) =>
@@ -1962,24 +2049,9 @@ class _BuatProjectPageState extends State<BuatProjectPage> {
       Wrap(
         spacing: 8,
         runSpacing: 8,
-        children: opsi.map((o) {
-          final a = aktif(o);
-          return GestureDetector(
-            onTap: () => setState(() => onTap(o)),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(
-                color: a ? const Color(0xFFEEF2FF) : Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: a ? _biru : const Color(0xFFE2E8F0)),
-              ),
-              child: Text(o,
-                  style: TextStyle(
-                      color: a ? _biru : _navy,
-                      fontWeight: a ? FontWeight.bold : FontWeight.normal)),
-            ),
-          );
-        }).toList(),
+        children: opsi
+            .map((o) => DsChip(label: o, aktif: aktif(o), onTap: () => setState(() => onTap(o))))
+            .toList(),
       );
 
   Widget _barisKuotaPeran(String role) {
@@ -2048,7 +2120,7 @@ class _BuatProjectPageState extends State<BuatProjectPage> {
                 backgroundColor: _biru,
                 disabledBackgroundColor: const Color(0xFFCBD5E1),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20))),
+                    borderRadius: BorderRadius.circular(999))),
             child: _loading
                 ? const SizedBox(
                     height: 22,
@@ -2066,14 +2138,25 @@ class _BuatProjectPageState extends State<BuatProjectPage> {
           children: [
             _label('JUDUL PROYEK'),
             _field(_judul, 'cth: Aplikasi Absensi Berbasis QR'),
-            _label('DESKRIPSI'),
+            const SizedBox(height: 20),
+            _judulBantuan('DESKRIPSI', () => _jelaskanDeskripsiProyek(context)),
+            const SizedBox(height: 8),
             _field(_deskripsi, 'Jelaskan tujuan proyek & apa yang dikerjakan…',
                 maxLines: 4),
 
             // 6 atribut Affinity Engine (sama seperti profil mahasiswa) — menentukan skor kecocokan.
             Row(children: [
               _label('PERAN DIBUTUHKAN'),
-              const Text(' *', style: TextStyle(color: Color(0xFFDC2626)))
+              const Text(' *', style: TextStyle(color: Color(0xFFDC2626))),
+              const SizedBox(width: 4),
+              InkWell(
+                onTap: () => _jelaskanPeranDibutuhkan(context),
+                customBorder: const CircleBorder(),
+                child: const Padding(
+                  padding: EdgeInsets.all(4),
+                  child: Icon(Icons.help_outline, size: 16, color: _abu),
+                ),
+              ),
             ]),
             _pilihan(_peranOpsi, (o) => _peran.containsKey(o), (o) {
               if (_peran.containsKey(o)) {
@@ -2089,25 +2172,24 @@ class _BuatProjectPageState extends State<BuatProjectPage> {
               const SizedBox(height: 8),
               ..._peran.keys.map((role) => _barisKuotaPeran(role)),
             ],
-            _label('SKILL DIBUTUHKAN'),
+            _label('SKILL DIBUTUHKAN', bantuanKey: 'proyekSkill'),
             _pilihan(_skillOpsi, (o) => _skill.contains(o),
                 (o) => _skill.contains(o) ? _skill.remove(o) : _skill.add(o)),
-            _label('MINAT / BIDANG'),
+            _label('MINAT / BIDANG', bantuanKey: 'proyekMinat'),
             _pilihan(_minatOpsi, (o) => _minat.contains(o),
                 (o) => _minat.contains(o) ? _minat.remove(o) : _minat.add(o)),
-            _label('GAYA KERJA KEGIATAN'),
+            _label('GAYA KERJA KEGIATAN', bantuanKey: 'proyekGayaKerja'),
             _pilihan(
                 _gayaKerjaOpsi, (o) => _gayaKerja == o, (o) => _gayaKerja = o),
-            _label('PENGALAMAN DISARANKAN'),
+            _label('PENGALAMAN DISARANKAN', bantuanKey: 'proyekPengalaman'),
             _pilihan(_pengalamanOpsi, (o) => _pengalaman == o,
                 (o) => _pengalaman = o),
-            _label('KETERSEDIAAN JADWAL KEGIATAN'),
-            _pilihan(
-                _waktuOpsi,
-                (o) => _ketersediaan.contains(o),
-                (o) => _ketersediaan.contains(o)
-                    ? _ketersediaan.remove(o)
-                    : _ketersediaan.add(o)),
+            _label('KETERSEDIAAN JADWAL KEGIATAN', bantuanKey: 'proyekJadwal'),
+            DsJadwalGrid(
+              value: _ketersediaan,
+              onToggle: (slot) => setState(
+                  () => _ketersediaan.contains(slot) ? _ketersediaan.remove(slot) : _ketersediaan.add(slot)),
+            ),
           ]),
     );
   }

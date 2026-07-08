@@ -59,6 +59,18 @@ Color _labelBg(String b) => (b == 'Sangat Cocok')
 Color _labelFg(String b) =>
     (b == 'Sangat Cocok') ? _hijau : (b == 'Cocok' ? DS.warning : _navy);
 
+// Warna berdasarkan persentase kecocokan, ambang batasnya sama persis dengan
+// labelPeople() di backend (affinityPeople.ts): >=75 Sangat Cocok, >=50 Cocok, sisanya Cukup Cocok.
+Color _warnaDariPersen(num persen) =>
+    persen >= 75 ? _hijau : (persen >= 50 ? DS.warning : _abu);
+
+// Emoji "oncoming fist" — kepalan yang menghadap depan (ke arah pengguna), sesuai
+// permintaan "Tertarik" (bukan Icons.sports_mma yang tampak menghadap atas/samping).
+// Catatan: emoji render warna asli sendiri, parameter `warna` tidak selalu berlaku
+// di semua platform — dibiarkan buat konsistensi pemanggilan dengan Icon biasa.
+Widget _ikonTertarik({double size = 16, Color? warna}) =>
+    Text('👊', style: TextStyle(fontSize: size, color: warna, height: 1));
+
 Widget _badge(String teks) => Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(color: _labelBg(teks), borderRadius: BorderRadius.circular(999)),
@@ -80,7 +92,7 @@ class _Donut extends StatelessWidget {
   const _Donut(this.persen, {this.size = 108});
   @override
   Widget build(BuildContext context) {
-    final warna = persen >= 60 ? _hijau : _abu;
+    final warna = _warnaDariPersen(persen);
     return DsRadialGauge(
       percent: persen,
       size: size,
@@ -254,9 +266,6 @@ const _minatOpsiFilter = [
 ];
 const _peranOpsiFilter = ['Leader/Coordinator', 'Contributor/Executor', 'Supporter/Facilitator'];
 const _gayaOpsiFilter = ['Terstruktur', 'Fleksibel'];
-const _waktuOpsiFilter = [
-  'Senin malam', 'Selasa sore', 'Rabu sore', 'Kamis malam', 'Jumat sore', 'Sabtu pagi', 'Minggu malam',
-];
 
 class _RekomendasiTabState extends State<_RekomendasiTab> {
   final _filter = const [
@@ -266,7 +275,6 @@ class _RekomendasiTabState extends State<_RekomendasiTab> {
     {'label': 'Cukup Cocok', 'key': 'cukup'},
   ];
   int _filterAktif = 0;
-  int _index = 0;
   bool _loading = true;
   String? _pesan;
   bool _profilBelumLengkap = false;
@@ -312,7 +320,6 @@ class _RekomendasiTabState extends State<_RekomendasiTab> {
       final error = res is Map ? res['error']?.toString() : null;
       setState(() {
         _feed = feed;
-        _index = 0;
         _profilBelumLengkap = error != null;
         if (feed.isEmpty) {
           _pesan = error ?? 'Belum ada rekomendasi.';
@@ -325,18 +332,8 @@ class _RekomendasiTabState extends State<_RekomendasiTab> {
     }
   }
 
-  Widget _chipPilih(String label, bool aktif, VoidCallback onTap) => GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-          decoration: BoxDecoration(
-            color: aktif ? _biru : Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: aktif ? _biru : const Color(0xFFE2E8F0)),
-          ),
-          child: Text(label, style: TextStyle(color: aktif ? Colors.white : _navy, fontWeight: FontWeight.w600, fontSize: 13)),
-        ),
-      );
+  Widget _chipPilih(String label, bool aktif, VoidCallback onTap) =>
+      DsChip(label: label, aktif: aktif, onTap: onTap);
 
   void _bukaFilterSheet() {
     // salinan sementara supaya bisa dibatalkan tanpa mengubah filter yang aktif
@@ -368,7 +365,7 @@ class _RekomendasiTabState extends State<_RekomendasiTab> {
                 ),
               ]),
               const SizedBox(height: 12),
-              _sectionTitle('MINAT'),
+              Row(children: [_sectionTitle('MINAT'), const SizedBox(width: 4), dsBantuanIkon(ctx, 'minat')]),
               const SizedBox(height: 10),
               Wrap(
                 spacing: 8,
@@ -379,7 +376,7 @@ class _RekomendasiTabState extends State<_RekomendasiTab> {
                     .toList(),
               ),
               const SizedBox(height: 18),
-              _sectionTitle('PREFERENSI PERAN'),
+              Row(children: [_sectionTitle('PREFERENSI PERAN'), const SizedBox(width: 4), dsBantuanIkon(ctx, 'preferensiPeran')]),
               const SizedBox(height: 10),
               Wrap(
                 spacing: 8,
@@ -389,7 +386,7 @@ class _RekomendasiTabState extends State<_RekomendasiTab> {
                     .toList(),
               ),
               const SizedBox(height: 18),
-              _sectionTitle('GAYA KERJA'),
+              Row(children: [_sectionTitle('GAYA KERJA'), const SizedBox(width: 4), dsBantuanIkon(ctx, 'gayaKerja')]),
               const SizedBox(height: 10),
               Wrap(
                 spacing: 8,
@@ -399,15 +396,12 @@ class _RekomendasiTabState extends State<_RekomendasiTab> {
                     .toList(),
               ),
               const SizedBox(height: 18),
-              _sectionTitle('KETERSEDIAAN WAKTU'),
+              Row(children: [_sectionTitle('KETERSEDIAAN WAKTU'), const SizedBox(width: 4), dsBantuanIkon(ctx, 'ketersediaanWaktu')]),
               const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: _waktuOpsiFilter
-                    .map((w) => _chipPilih(w, waktu.contains(w),
-                        () => setSheet(() => waktu.contains(w) ? waktu.remove(w) : waktu.add(w))))
-                    .toList(),
+              DsJadwalGrid(
+                value: waktu,
+                onToggle: (slot) =>
+                    setSheet(() => waktu.contains(slot) ? waktu.remove(slot) : waktu.add(slot)),
               ),
               const SizedBox(height: 24),
               SizedBox(
@@ -443,7 +437,6 @@ class _RekomendasiTabState extends State<_RekomendasiTab> {
 
   @override
   Widget build(BuildContext context) {
-    final habis = _index >= _feed.length;
     // Kalau profil belum lengkap, sembunyikan kontrol filter (percuma difilter,
     // belum ada data) supaya tampilannya bersih & simetris seperti modul lain.
     final tampilkanKontrol = !_profilBelumLengkap;
@@ -453,8 +446,7 @@ class _RekomendasiTabState extends State<_RekomendasiTab> {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             const Text('Rekomendasi orang',
                 style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: _navy)),
-            Text(_feed.isEmpty ? '0 kandidat' : (habis ? '${_feed.length} kandidat' : 'Kandidat ${_index + 1} dari ${_feed.length}'),
-                style: const TextStyle(color: _abu)),
+            Text('${_feed.length} kandidat', style: const TextStyle(color: _abu)),
           ]),
         ),
         if (tampilkanKontrol) ...[
@@ -518,25 +510,28 @@ class _RekomendasiTabState extends State<_RekomendasiTab> {
       Expanded(
         child: _loading
             ? const Center(child: CircularProgressIndicator())
-            : (_feed.isEmpty || habis)
+            : _feed.isEmpty
                 ? ListView(children: [
                     Padding(
                       padding: const EdgeInsets.only(top: 40),
                       child: _EmptyState(
                         icon: Icons.auto_awesome,
-                        judul: _feed.isEmpty ? (_pesan ?? 'Belum ada rekomendasi') : 'Kamu sudah lihat semua',
+                        judul: _pesan ?? 'Belum ada rekomendasi',
                         subtitle: 'Cek koneksi & profil tersimpan, atau ubah filter untuk lihat lagi.',
                         tombol: 'Muat ulang',
                         onTombol: _muat,
                       ),
                     ),
                   ])
-                : _KartuRekomendasi(
-                    // key beda per kandidat supaya status tombol (disimpan/tertarik) tidak
-                    // ikut terbawa saat pindah ke kandidat berikutnya
-                    key: ValueKey(_feed[_index]['mahasiswaId']),
-                    item: _feed[_index] as Map,
-                    onSkip: () => setState(() => _index++),
+                : ListView.separated(
+                    itemCount: _feed.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 14),
+                    itemBuilder: (_, i) => _KartuRekomendasi(
+                      // key beda per kandidat supaya status tombol (disimpan/tertarik) tidak
+                      // ikut tertukar antar kartu
+                      key: ValueKey(_feed[i]['mahasiswaId']),
+                      item: _feed[i] as Map,
+                    ),
                   ),
       ),
     ]);
@@ -545,8 +540,7 @@ class _RekomendasiTabState extends State<_RekomendasiTab> {
 
 class _KartuRekomendasi extends StatefulWidget {
   final Map item;
-  final VoidCallback onSkip;
-  const _KartuRekomendasi({super.key, required this.item, required this.onSkip});
+  const _KartuRekomendasi({super.key, required this.item});
 
   @override
   State<_KartuRekomendasi> createState() => _KartuRekomendasiState();
@@ -609,8 +603,6 @@ class _KartuRekomendasiState extends State<_KartuRekomendasi> {
       );
 
   // Toggle: kalau belum aktif -> POST (aktifkan), kalau sudah aktif -> DELETE (undo).
-  // Kalau hasilnya CONNECTED (saling tertarik/hubungkan), langsung lanjut ke kandidat
-  // berikutnya karena hubungannya sudah final, tidak ada lagi yang bisa di-undo.
   Future<void> _toggle({
     required bool aktifSaatIni,
     required String postPath,
@@ -631,11 +623,6 @@ class _KartuRekomendasiState extends State<_KartuRekomendasi> {
         final pesan = res is Map && res['pesan'] != null ? res['pesan'].toString() : 'Berhasil';
         if (mounted) _snack(context, pesan);
         setState(() => setAktif(true));
-        final status = res is Map ? res['status']?.toString() : null;
-        if (status == 'CONNECTED') {
-          widget.onSkip();
-          return; // widget ini akan diganti kandidat berikutnya, tidak perlu setState lagi
-        }
       }
     } catch (_) {
       if (mounted) _snack(context, 'Gagal terhubung ke server.');
@@ -654,9 +641,6 @@ class _KartuRekomendasiState extends State<_KartuRekomendasi> {
     final bio = item['bio']?.toString() ?? '';
     final alasan = (item['alasan'] as List?)?.cast<String>() ?? [];
     final dotWarna = [_hijau, _biru, _biru, const Color(0xFFD97706)];
-    // Kartu selalu mengisi tinggi penuh yang tersedia (bukan mengikuti tinggi konten) supaya
-    // posisi & ukurannya tidak berubah-ubah antar kandidat — cuma bagian "alasan cocok" yang
-    // scroll internal kalau isinya lebih dari yang muat.
     return Card(
       margin: EdgeInsets.zero,
       child: Padding(
@@ -688,26 +672,22 @@ class _KartuRekomendasiState extends State<_KartuRekomendasi> {
           const SizedBox(height: 18),
           _sectionTitle('KENAPA KALIAN COCOK'),
           const SizedBox(height: 10),
-          Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                children: alasan.asMap().entries.map((e) => Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.all(14),
-                      decoration:
-                          BoxDecoration(color: const Color(0xFFF6F8FB), borderRadius: BorderRadius.circular(12)),
-                      child: Row(children: [
-                        Container(
-                            width: 8,
-                            height: 8,
-                            decoration:
-                                BoxDecoration(color: dotWarna[e.key % dotWarna.length], shape: BoxShape.circle)),
-                        const SizedBox(width: 12),
-                        Expanded(child: Text(e.value, style: const TextStyle(color: _navy, height: 1.3))),
-                      ]),
-                    )).toList(),
-              ),
-            ),
+          Column(
+            children: alasan.asMap().entries.map((e) => Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(14),
+                  decoration:
+                      BoxDecoration(color: const Color(0xFFF6F8FB), borderRadius: BorderRadius.circular(12)),
+                  child: Row(children: [
+                    Container(
+                        width: 8,
+                        height: 8,
+                        decoration:
+                            BoxDecoration(color: dotWarna[e.key % dotWarna.length], shape: BoxShape.circle)),
+                    const SizedBox(width: 12),
+                    Expanded(child: Text(e.value, style: const TextStyle(color: _navy, height: 1.3))),
+                  ]),
+                )).toList(),
           ),
           const SizedBox(height: 6),
           Center(
@@ -762,7 +742,7 @@ class _KartuRekomendasiState extends State<_KartuRekomendasi> {
                         fit: BoxFit.scaleDown,
                         child: Row(mainAxisSize: MainAxisSize.min, children: [
                           if (_tertarik) ...[
-                            const Icon(Icons.favorite, size: 16, color: _pink),
+                            _ikonTertarik(size: 16, warna: _pink),
                             const SizedBox(width: 6),
                           ],
                           Text('Tertarik',
@@ -808,8 +788,6 @@ class _KartuRekomendasiState extends State<_KartuRekomendasi> {
                       ),
               ),
             ),
-            const SizedBox(width: 8),
-            _kotakAksi(Icons.arrow_forward, widget.onSkip),
           ]),
         ]),
       ),
@@ -828,6 +806,9 @@ class PartnerDetailPage extends StatefulWidget {
 class _PartnerDetailPageState extends State<PartnerDetailPage> {
   Map<String, dynamic>? _p;
   bool _loading = true;
+  // Rincian teknis (bobot per atribut) disembunyikan default — user awam cukup
+  // lihat skor akhir, yang penasaran bisa tap buat lihat detail perhitungan.
+  bool _rincianTerbuka = false;
 
   static const _labelAtribut = {
     'skill': 'Skill',
@@ -851,6 +832,30 @@ class _PartnerDetailPageState extends State<PartnerDetailPage> {
       _p = res is Map ? Map<String, dynamic>.from(res) : null;
       _loading = false;
     });
+  }
+
+  // Penjelasan skor buat user awam — sengaja cuma jelaskan konsepnya (mirip vs saling
+  // melengkapi), tanpa menyebut rumus/bobot supaya tetap gampang dipahami.
+  void _jelaskanSkor(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Kenapa skor ini?', style: TextStyle(fontWeight: FontWeight.bold, color: _navy)),
+        content: const Text(
+          'Skor kecocokan dilihat dari beberapa hal tentang kalian berdua: skill, minat, gaya kerja, '
+          'pengalaman, ketersediaan waktu, dan peran yang disukai.\n\n'
+          'Untuk sebagian hal, kalian dianggap makin cocok kalau makin mirip. Contohnya minat yang sama.\n\n'
+          'Untuk hal lain, kalian dianggap makin cocok kalau berbeda dan saling melengkapi. Contohnya skill '
+          'yang beda, supaya bisa saling bantu, bukan malah tumpang tindih.\n\n'
+          'Semuanya digabung jadi satu skor akhir yang kamu lihat di atas.',
+          style: TextStyle(color: _navy, height: 1.5),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Mengerti', style: TextStyle(fontWeight: FontWeight.bold))),
+        ],
+      ),
+    );
   }
 
   // Toggle: kalau statusnya lagi aktif (sudah disimpan/tertarik/terkirim), tap lagi = undo (DELETE).
@@ -916,19 +921,41 @@ class _PartnerDetailPageState extends State<PartnerDetailPage> {
         ]),
         if (bio.isNotEmpty) ...[
           const SizedBox(height: 18),
-          _sectionTitle('BIO'),
+          Row(children: [_sectionTitle('BIO'), const SizedBox(width: 4), dsBantuanIkon(context, 'bio')]),
           const SizedBox(height: 10),
           Text(bio, style: const TextStyle(color: _navy, height: 1.4)),
         ],
         const SizedBox(height: 20),
         if (breakdown != null) ...[
           Row(children: [
-            _sectionTitle('RINCIAN KECOCOKAN'),
-            const SizedBox(width: 8),
-            const Text('AffinityEngine', style: TextStyle(color: Color(0xFFB0B8C4))),
+            _sectionTitle('KENAPA SKOR INI?'),
+            const SizedBox(width: 4),
+            InkWell(
+              onTap: () => _jelaskanSkor(context),
+              customBorder: const CircleBorder(),
+              child: const Padding(
+                padding: EdgeInsets.all(4),
+                child: Icon(Icons.help_outline, size: 16, color: _abu),
+              ),
+            ),
+            const Spacer(),
+            InkWell(
+              onTap: () => setState(() => _rincianTerbuka = !_rincianTerbuka),
+              borderRadius: BorderRadius.circular(8),
+              child: Row(children: [
+                Text(_rincianTerbuka ? 'Sembunyikan' : 'Lihat rincian',
+                    style: const TextStyle(color: _biru, fontWeight: FontWeight.bold, fontSize: 13)),
+                Icon(_rincianTerbuka ? Icons.expand_less : Icons.expand_more, color: _biru, size: 20),
+              ]),
+            ),
           ]),
           const SizedBox(height: 10),
-          Builder(builder: (context) {
+          if (!_rincianTerbuka)
+            Text(
+              'Skor dihitung dari kecocokan skill, minat, gaya kerja, pengalaman, ketersediaan waktu, dan preferensi peran.',
+              style: const TextStyle(color: _abu, fontSize: 12.5, height: 1.4),
+            ),
+          if (_rincianTerbuka) Builder(builder: (context) {
             final kunci = _labelAtribut.keys.where((k) => breakdown.containsKey(k)).toList();
             final semuaBobot = kunci.map((k) => ((breakdown[k] as Map)['bobot'] as num).toDouble()).toList();
             final minBobot = semuaBobot.reduce((a, b) => a < b ? a : b);
@@ -948,9 +975,9 @@ class _PartnerDetailPageState extends State<PartnerDetailPage> {
                       Row(children: [
                         Text(_labelAtribut[k]!, style: const TextStyle(fontWeight: FontWeight.bold, color: _navy)),
                         const SizedBox(width: 8),
-                        _tagRincian(_komplementer.contains(k) ? 'Komplementer' : 'Suplementer'),
+                        _tagRincian(_komplementer.contains(k) ? 'Saling melengkapi' : 'Makin mirip'),
                         const Spacer(),
-                        Text('bobot ${bobot.toStringAsFixed(3).replaceAll('.', ',')}',
+                        Text('Pengaruh ${_tingkatPengaruh(bobot, minBobot, maxBobot)}',
                             style: const TextStyle(color: Color(0xFFB0B8C4), fontSize: 12)),
                       ]),
                       const SizedBox(height: 6),
@@ -971,28 +998,28 @@ class _PartnerDetailPageState extends State<PartnerDetailPage> {
           }),
           const SizedBox(height: 20),
         ],
-        _sectionTitle('MINAT'),
+        Row(children: [_sectionTitle('MINAT'), const SizedBox(width: 4), dsBantuanIkon(context, 'minat')]),
         const SizedBox(height: 10),
         _chipList(((p['minat'] as List?) ?? []).cast<String>()),
         const SizedBox(height: 18),
-        _sectionTitle('SKILL'),
+        Row(children: [_sectionTitle('SKILL'), const SizedBox(width: 4), dsBantuanIkon(context, 'skill')]),
         const SizedBox(height: 10),
         _chipList(((p['skill'] as List?) ?? []).cast<String>()),
         const SizedBox(height: 16),
         Card(
           margin: EdgeInsets.zero,
           child: Column(children: [
-            _baris('Pengalaman', _teksPengalaman(p['pengalaman'])),
+            _baris('Pengalaman', _teksPengalaman(p['pengalaman']), bantuanKey: 'pengalaman'),
             const Divider(height: 1),
-            _baris('Gaya kerja', p['gayaKerja']?.toString() ?? '-'),
+            _baris('Gaya kerja', p['gayaKerja']?.toString() ?? '-', bantuanKey: 'gayaKerja'),
             const Divider(height: 1),
-            _baris('Preferensi peran', p['preferensiPeran']?.toString() ?? '-'),
+            _baris('Preferensi peran', p['preferensiPeran']?.toString() ?? '-', bantuanKey: 'preferensiPeran'),
           ]),
         ),
         const SizedBox(height: 18),
-        _sectionTitle('KETERSEDIAAN WAKTU'),
+        Row(children: [_sectionTitle('KETERSEDIAAN WAKTU'), const SizedBox(width: 4), dsBantuanIkon(context, 'ketersediaanWaktu')]),
         const SizedBox(height: 10),
-        _chipList(((p['ketersediaanWaktu'] as List?) ?? []).cast<String>()),
+        DsExpandableChips(items: ((p['ketersediaanWaktu'] as List?) ?? []).cast<String>()),
         const SizedBox(height: 16),
         _kotakKontak(terhubung, p['kontak']?.toString()),
         const SizedBox(height: 8),
@@ -1078,10 +1105,7 @@ class _PartnerDetailPageState extends State<PartnerDetailPage> {
             child: OutlinedButton.icon(
               onPressed: () => _toggle(_p?['sudahTertarik'] == true, '/people-to-people/interest',
                   '/people-to-people/interest/${widget.mahasiswaId}', {'receiverId': widget.mahasiswaId}),
-              icon: Icon(
-                  (_p?['sudahTertarik'] == true) ? Icons.favorite : Icons.favorite_border,
-                  size: 18,
-                  color: (_p?['sudahTertarik'] == true) ? _pink : _navy),
+              icon: _ikonTertarik(size: 18, warna: (_p?['sudahTertarik'] == true) ? _pink : _navy),
               label: Text('Tertarik',
                   style: TextStyle(
                       color: (_p?['sudahTertarik'] == true) ? _pink : _navy, fontWeight: FontWeight.bold)),
@@ -1122,20 +1146,38 @@ class _PartnerDetailPageState extends State<PartnerDetailPage> {
         ]),
       );
 
+  // Dua warna ini sengaja dibuat setara (bukan hierarki hijau=bagus vs abu=biasa) —
+  // keduanya sama-sama valid, cuma jenis kecocokannya beda: saling melengkapi
+  // (dari perbedaan) vs makin mirip (dari kesamaan).
+  static const _warnaMelengkapi = Color(0xFF9333EA); // ungu
+  static const _warnaMirip = Color(0xFF0D9488); // teal
   Widget _tagRincian(String tag) {
-    final biru = tag == 'Komplementer';
+    final melengkapi = tag == 'Saling melengkapi';
+    final warna = melengkapi ? _warnaMelengkapi : _warnaMirip;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-          color: biru ? const Color(0xFFEEF2FF) : const Color(0xFFDCFCE7), borderRadius: BorderRadius.circular(20)),
-      child: Text(tag, style: TextStyle(color: biru ? _biru : _hijau, fontSize: 11, fontWeight: FontWeight.bold)),
+      decoration: BoxDecoration(color: warna.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20)),
+      child: Text(tag, style: TextStyle(color: warna, fontSize: 11, fontWeight: FontWeight.bold)),
     );
   }
 
-  Widget _baris(String kiri, String kanan) => Padding(
+  // Ganti angka bobot mentah (mis. "0,241") jadi istilah awam relatif terhadap
+  // atribut lain pada pasangan ini — lebih gampang dipahami tanpa perlu tahu
+  // artinya angka desimal tersebut.
+  String _tingkatPengaruh(double bobot, double minBobot, double maxBobot) {
+    final t = (maxBobot == minBobot) ? 1.0 : (bobot - minBobot) / (maxBobot - minBobot);
+    if (t >= 0.66) return 'besar';
+    if (t >= 0.33) return 'sedang';
+    return 'kecil';
+  }
+
+  Widget _baris(String kiri, String kanan, {String? bantuanKey}) => Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text(kiri, style: const TextStyle(color: _abu)),
+          Row(mainAxisSize: MainAxisSize.min, children: [
+            Text(kiri, style: const TextStyle(color: _abu)),
+            if (bantuanKey != null) dsBantuanIkon(context, bantuanKey, size: 14),
+          ]),
           Text(kanan, style: const TextStyle(fontWeight: FontWeight.bold, color: _navy)),
         ]),
       );
@@ -1262,7 +1304,7 @@ class _KoneksiTabState extends State<_KoneksiTab> {
         seg('Terhubung', 0, dotBaru: _hitungKoneksiBaru() > 0),
         seg('Permintaan', 1, dotBaru: _permintaan.isNotEmpty),
         seg('Disimpan', 2),
-        seg('Menyukai', 3),
+        seg('Tertarik', 3),
       ]),
     );
   }
@@ -1307,12 +1349,12 @@ class _KoneksiTabState extends State<_KoneksiTab> {
                 border: Border.all(color: const Color(0xFFFBCFE8)),
               ),
               child: Column(mainAxisSize: MainAxisSize.min, children: [
-                const Icon(Icons.favorite, color: _pink, size: 40),
+                _ikonTertarik(size: 40, warna: _pink),
                 const SizedBox(height: 12),
                 Text('$_jumlahMenyukai',
                     style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: _pink)),
                 const SizedBox(height: 4),
-                Text(_jumlahMenyukai == 1 ? 'orang menyukaimu' : 'orang menyukaimu',
+                Text(_jumlahMenyukai == 1 ? 'orang tertarik padamu' : 'orang tertarik padamu',
                     style: const TextStyle(color: _navy, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 12),
                 const Text(
@@ -1411,7 +1453,7 @@ class _KoneksiTabState extends State<_KoneksiTab> {
       decoration: BoxDecoration(
           color: interest ? _pinkMuda : const Color(0xFFDCFCE7), borderRadius: BorderRadius.circular(20)),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(interest ? Icons.favorite : Icons.link, size: 13, color: interest ? _pink : _hijau),
+        interest ? _ikonTertarik(size: 13, warna: _pink) : Icon(Icons.link, size: 13, color: _hijau),
         const SizedBox(width: 4),
         Text(interest ? 'Saling tertarik' : 'Via koneksi',
             style: TextStyle(color: interest ? _pink : _hijau, fontSize: 11, fontWeight: FontWeight.bold)),

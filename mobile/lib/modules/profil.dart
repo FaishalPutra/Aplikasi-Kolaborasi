@@ -26,9 +26,6 @@ const _minatOpsi = [
 const _gayaKerjaOpsi = ['Terstruktur', 'Fleksibel'];
 const _pengalamanOpsi = ['Pemula', 'Menengah', 'Mahir'];
 const _peranOpsi = ['Leader/Coordinator', 'Contributor/Executor', 'Supporter/Facilitator'];
-const _waktuOpsi = [
-  'Senin malam', 'Selasa sore', 'Rabu sore', 'Kamis malam', 'Jumat sore', 'Sabtu pagi', 'Minggu malam',
-];
 const _kontakOpsi = ['WHATSAPP', 'LINE', 'LINKEDIN'];
 
 String _teksPengalaman(dynamic v) => v == 1 ? 'Pemula' : (v == 2 ? 'Menengah' : (v == 3 ? 'Mahir' : '-'));
@@ -55,6 +52,34 @@ Widget _sectionTitle(String t) =>
     Text(t, style: const TextStyle(color: _biru, fontWeight: FontWeight.bold, letterSpacing: 0.5, fontSize: 13));
 
 void _snack(BuildContext c, String m) => ScaffoldMessenger.of(c).showSnackBar(SnackBar(content: Text(m)));
+
+// Penjelasan TREO buat user awam — jelaskan tiap peran secara singkat, tanpa
+// menyebut cara penilaian/skala kuesionernya.
+void _jelaskanTreo(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: const Text('Apa itu TREO?', style: TextStyle(fontWeight: FontWeight.bold, color: _navy)),
+      content: const Text(
+        'TREO menggambarkan peran alami kamu saat kerja dalam tim, dilihat dari 6 sisi:\n\n'
+        '• Organizer, suka mengatur dan merencanakan\n'
+        '• Doer, suka eksekusi dan kerja teknis\n'
+        '• Challenger, suka mengkritisi dan mendorong kualitas\n'
+        '• Innovator, suka mencari ide dan solusi baru\n'
+        '• Team Builder, suka menjaga kekompakan tim\n'
+        '• Connector, suka menjembatani dan komunikasi\n\n'
+        'Hasil kuesionermu menunjukkan seberapa kuat tiap peran itu ada dalam dirimu, dipakai '
+        'untuk membantu menyusun tim yang perannya seimbang. Tidak ada peran yang lebih baik '
+        'dari yang lain.',
+        style: TextStyle(color: _navy, height: 1.5),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Mengerti', style: TextStyle(fontWeight: FontWeight.bold))),
+      ],
+    ),
+  );
+}
 
 const Map<String, String> _treoDimLabelProfil = {
   'organizer': 'Organizer',
@@ -258,31 +283,44 @@ class _ProfilPageState extends State<ProfilPage> {
               ),
             ),
             const SizedBox(height: 20),
-            _sectionTitle('MINAT'),
+            _judulAtribut('MINAT', 'minat'),
             const SizedBox(height: 10),
             minat.isEmpty ? const Text('Belum diisi', style: TextStyle(color: _abu)) : _chipList(minat),
             const SizedBox(height: 18),
-            _sectionTitle('SKILL'),
+            _judulAtribut('SKILL', 'skill'),
             const SizedBox(height: 10),
             skill.isEmpty ? const Text('Belum diisi', style: TextStyle(color: _abu)) : _chipList(skill),
             const SizedBox(height: 18),
             Card(
               margin: EdgeInsets.zero,
               child: Column(children: [
-                _baris('Pengalaman', profil != null ? _teksPengalaman(profil['pengalaman']) : '-'),
+                _baris('Pengalaman', profil != null ? _teksPengalaman(profil['pengalaman']) : '-', bantuanKey: 'pengalaman'),
                 const Divider(height: 1),
-                _baris('Gaya kerja', profil?['gayaKerja']?.toString().isNotEmpty == true ? profil!['gayaKerja'].toString() : '-'),
+                _baris('Gaya kerja', profil?['gayaKerja']?.toString().isNotEmpty == true ? profil!['gayaKerja'].toString() : '-',
+                    bantuanKey: 'gayaKerja'),
                 const Divider(height: 1),
                 _baris('Preferensi peran',
-                    profil?['preferensiPeran']?.toString().isNotEmpty == true ? profil!['preferensiPeran'].toString() : '-'),
+                    profil?['preferensiPeran']?.toString().isNotEmpty == true ? profil!['preferensiPeran'].toString() : '-',
+                    bantuanKey: 'preferensiPeran'),
               ]),
             ),
             const SizedBox(height: 18),
-            _sectionTitle('KETERSEDIAAN WAKTU'),
+            _judulAtribut('KETERSEDIAAN WAKTU', 'ketersediaanWaktu'),
             const SizedBox(height: 10),
-            waktu.isEmpty ? const Text('Belum diisi', style: TextStyle(color: _abu)) : _chipList(waktu),
+            DsExpandableChips(items: waktu),
             const SizedBox(height: 18),
-            _sectionTitle('TREO ROLE TEAM'),
+            Row(children: [
+              _sectionTitle('TREO ROLE TEAM'),
+              const SizedBox(width: 4),
+              InkWell(
+                onTap: () => _jelaskanTreo(context),
+                customBorder: const CircleBorder(),
+                child: const Padding(
+                  padding: EdgeInsets.all(4),
+                  child: Icon(Icons.help_outline, size: 16, color: _abu),
+                ),
+              ),
+            ]),
             const SizedBox(height: 10),
             Card(
               margin: EdgeInsets.zero,
@@ -344,6 +382,7 @@ class _ProfilPageState extends State<ProfilPage> {
                           style: const TextStyle(fontWeight: FontWeight.bold, color: _navy, fontSize: 15)),
                     ]),
                   ),
+                  dsBantuanIkon(context, 'kontak'),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(20)),
@@ -375,10 +414,19 @@ class _ProfilPageState extends State<ProfilPage> {
     );
   }
 
-  Widget _baris(String kiri, String kanan) => Padding(
+  Widget _judulAtribut(String label, String bantuanKey) => Row(children: [
+        _sectionTitle(label),
+        const SizedBox(width: 4),
+        dsBantuanIkon(context, bantuanKey),
+      ]);
+
+  Widget _baris(String kiri, String kanan, {String? bantuanKey}) => Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text(kiri, style: const TextStyle(color: _abu)),
+          Row(mainAxisSize: MainAxisSize.min, children: [
+            Text(kiri, style: const TextStyle(color: _abu)),
+            if (bantuanKey != null) dsBantuanIkon(context, bantuanKey, size: 14),
+          ]),
           Text(kanan, style: const TextStyle(fontWeight: FontWeight.bold, color: _navy)),
         ]),
       );
@@ -426,9 +474,12 @@ class _EditProfilPageState extends State<EditProfilPage> {
   String _kontakJenis = 'WHATSAPP';
   final Set<String> _skill = {};
   final Set<String> _minat = {};
-  String _gayaKerja = 'Fleksibel';
-  String _pengalaman = 'Menengah';
-  String _peran = 'Contributor/Executor';
+  // Sengaja tidak diberi nilai default — user harus aktif memilih supaya tidak
+  // ada yang kelewat tanpa sadar (temuan UAT: field yang sudah ke-pilih otomatis
+  // suka dilewati begitu saja tanpa benar-benar dipilih user).
+  String? _gayaKerja;
+  String? _pengalaman;
+  String? _peran;
   final Set<String> _waktu = {};
   bool _loading = false;
 
@@ -457,8 +508,16 @@ class _EditProfilPageState extends State<EditProfilPage> {
     }
   }
 
-  bool get _valid => _nama.text.trim().isNotEmpty && _institusi.text.trim().isNotEmpty;
-  int get _pengalamanReq => _pengalamanOpsi.indexOf(_pengalaman) + 1;
+  bool get _valid =>
+      _nama.text.trim().isNotEmpty &&
+      _institusi.text.trim().isNotEmpty &&
+      _skill.isNotEmpty &&
+      _minat.isNotEmpty &&
+      _gayaKerja != null &&
+      _pengalaman != null &&
+      _peran != null &&
+      _waktu.isNotEmpty;
+  int get _pengalamanReq => _pengalaman == null ? 0 : _pengalamanOpsi.indexOf(_pengalaman!) + 1;
 
   Future<void> _simpan() async {
     setState(() => _loading = true);
@@ -487,7 +546,9 @@ class _EditProfilPageState extends State<EditProfilPage> {
         _snack(context, resProfil['error'].toString());
       } else {
         _snack(context, 'Profil berhasil disimpan');
-        Navigator.pop(context);
+        // pop(true) supaya alur onboarding (auth.dart) bisa membedakan ini dari
+        // pop akibat tombol back (yang tidak bawa nilai / null).
+        Navigator.pop(context, true);
       }
     } catch (_) {
       if (mounted) _snack(context, 'Gagal terhubung ke server.');
@@ -496,7 +557,12 @@ class _EditProfilPageState extends State<EditProfilPage> {
     }
   }
 
-  Widget _label(String t) => Padding(padding: const EdgeInsets.only(bottom: 8, top: 20), child: _sectionTitle(t));
+  Widget _label(String t, {String? bantuanKey}) => Padding(
+        padding: const EdgeInsets.only(bottom: 8, top: 20),
+        child: bantuanKey == null
+            ? _sectionTitle(t)
+            : Row(children: [_sectionTitle(t), const SizedBox(width: 4), dsBantuanIkon(context, bantuanKey)]),
+      );
 
   Widget _field(TextEditingController c, String hint,
           {TextInputType? keyboardType, int maxLines = 1}) =>
@@ -526,12 +592,19 @@ class _EditProfilPageState extends State<EditProfilPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    // Saat dipakai di alur onboarding (onLewati != null), tombol/gestur back
+    // sengaja dimatikan — tidak ada "kembali" yang masuk akal di titik ini
+    // (akun sudah dibuat & login), satu-satunya jalan maju adalah Simpan/Lewati.
+    final saatOnboarding = widget.onLewati != null;
+    return PopScope(
+      canPop: !saatOnboarding,
+      child: Scaffold(
       appBar: AppBar(
         title: const Text('Edit profil', style: TextStyle(fontWeight: FontWeight.bold, color: _navy)),
         backgroundColor: Colors.white,
         foregroundColor: _navy,
         elevation: 0,
+        automaticallyImplyLeading: !saatOnboarding,
         actions: widget.onLewati == null
             ? null
             : [
@@ -552,7 +625,7 @@ class _EditProfilPageState extends State<EditProfilPage> {
             style: FilledButton.styleFrom(
                 backgroundColor: _biru,
                 disabledBackgroundColor: const Color(0xFFCBD5E1),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999))),
             child: _loading
                 ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                 : const Text('Simpan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
@@ -560,33 +633,37 @@ class _EditProfilPageState extends State<EditProfilPage> {
         ),
       ),
       body: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 16), children: [
-        _label('NAMA'),
+        _label('NAMA', bantuanKey: 'nama'),
         _field(_nama, 'Nama lengkap'),
-        _label('ASAL KAMPUS (WAJIB)'),
+        _label('ASAL KAMPUS (WAJIB)', bantuanKey: 'kampus'),
         _field(_institusi, 'cth: Institut Teknologi Bandung'),
-        _label('JURUSAN'),
+        _label('JURUSAN', bantuanKey: 'jurusan'),
         _field(_jurusan, 'cth: Teknik Industri'),
-        _label('ANGKATAN'),
+        _label('ANGKATAN', bantuanKey: 'angkatan'),
         _field(_angkatan, 'cth: 2022', keyboardType: TextInputType.number),
-        _label('BIO'),
+        _label('BIO', bantuanKey: 'bio'),
         _field(_bio, 'Ceritakan singkat tentang dirimu', maxLines: 3),
-        _label('KONTAK UTAMA'),
+        _label('KONTAK UTAMA', bantuanKey: 'kontak'),
         _pilihan(_kontakOpsi, (o) => _kontakJenis == o, (o) => _kontakJenis = o),
         const SizedBox(height: 10),
         _field(_kontak, 'cth: 0812xxxxxxx atau username'),
-        _label('MINAT'),
+        _label('MINAT', bantuanKey: 'minat'),
         _pilihan(_minatOpsi, (o) => _minat.contains(o), (o) => _minat.contains(o) ? _minat.remove(o) : _minat.add(o)),
-        _label('SKILL'),
+        _label('SKILL', bantuanKey: 'skill'),
         _pilihan(_skillOpsi, (o) => _skill.contains(o), (o) => _skill.contains(o) ? _skill.remove(o) : _skill.add(o)),
-        _label('PENGALAMAN'),
+        _label('PENGALAMAN', bantuanKey: 'pengalaman'),
         _pilihan(_pengalamanOpsi, (o) => _pengalaman == o, (o) => _pengalaman = o),
-        _label('GAYA KERJA'),
+        _label('GAYA KERJA', bantuanKey: 'gayaKerja'),
         _pilihan(_gayaKerjaOpsi, (o) => _gayaKerja == o, (o) => _gayaKerja = o),
-        _label('PREFERENSI PERAN'),
+        _label('PREFERENSI PERAN', bantuanKey: 'preferensiPeran'),
         _pilihan(_peranOpsi, (o) => _peran == o, (o) => _peran = o),
-        _label('KETERSEDIAAN WAKTU'),
-        _pilihan(_waktuOpsi, (o) => _waktu.contains(o), (o) => _waktu.contains(o) ? _waktu.remove(o) : _waktu.add(o)),
+        _label('KETERSEDIAAN WAKTU', bantuanKey: 'ketersediaanWaktu'),
+        DsJadwalGrid(
+          value: _waktu,
+          onToggle: (slot) => setState(() => _waktu.contains(slot) ? _waktu.remove(slot) : _waktu.add(slot)),
+        ),
       ]),
+      ),
     );
   }
 }

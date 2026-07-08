@@ -106,10 +106,13 @@ class _HomeShellState extends State<HomeShell> {
 
   // Urutan langkah tur + tab yang wajib aktif sebelum langkah itu tampil
   // (null = tidak perlu pindah tab, karena nav bar selalu kelihatan apa pun tabnya).
+  // Catatan: tourP2PPFilterKey sengaja TIDAK diikutkan — ikon filter itu cuma
+  // muncul kalau profil user sudah lengkap, jadi kalau user skip survei saat
+  // onboarding, target langkah itu tidak ada dan tur jadi macet/nyangkut (baru
+  // "muncul tiba-tiba" belakangan begitu profil akhirnya dilengkapi).
   late final _tourTabForKey = <GlobalKey, int?>{
     _navOrangKey: null,
     tourP2PPToggleKey: 0,
-    tourP2PPFilterKey: 0,
     _navProyekKey: null,
     tourP2PToggleKey: 1,
     _navTimKey: null,

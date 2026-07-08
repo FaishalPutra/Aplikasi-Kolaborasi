@@ -30,7 +30,7 @@ flutter_native_splash:
   image: assets/images/splash_logo.png
   android_12:
     # Android 12+ splash API cuma dukung warna solid + ikon (tidak ada foto latar,
-    # keterbatasan OS) — jadi tetap pakai putih supaya ikon "AK" hitam kontras.
+    # keterbatasan OS) — jadi tetap pakai putih supaya badge olive "AK" kontras.
     image: assets/images/splash_logo.png
     color: "#FFFFFF"
   web: false
@@ -39,5 +39,5 @@ flutter_launcher_icons:
   android: true
   ios: false
   image_path: "assets/images/app_icon.png"
-  adaptive_icon_background: "#000000"
+  adaptive_icon_background: "#545333"
   adaptive_icon_foreground: "assets/images/app_icon.png"

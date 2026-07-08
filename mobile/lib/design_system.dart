@@ -10,17 +10,21 @@ import 'package:showcaseview/showcaseview.dart';
 // tipografi dua-nada (bold hitam + abu-abu), floating pill bottom nav.
 
 // ---------- WARNA ----------
+// Palet "Old Photograph": cream pucat -> khaki -> olive-taupe -> olive gelap.
+// Rasio dibuat seperti foto lama asli: kertas/latar tetap netral (putih), warna
+// hangatnya cuma jadi aksen (chip, teks di atas tombol gelap) — bukan mendominasi
+// seluruh layar.
 class DS {
   DS._();
 
   static const Color background = Color(0xFFFFFFFF);
-  static const Color primaryText = Color(0xFF000000);
-  static const Color secondaryText = Color(0xFF808080);
-  static const Color active = Color(0xFF000000); // chip/nav/CTA aktif
-  static const Color onActive = Color(0xFFFFFFFF);
-  static const Color chipInactiveBg = Color(0xFFF3F4F5);
-  static const Color infoCardBg = Color(0xFFEBEBEB);
-  static const Color divider = Color(0xFFE5E5E5);
+  static const Color primaryText = Color(0xFF545333);
+  static const Color secondaryText = Color(0xFF878672);
+  static const Color active = Color(0xFF545333); // chip/nav/CTA aktif
+  static const Color onActive = Color(0xFFFDFBD4);
+  static const Color chipInactiveBg = Color(0xFFD9D7B6);
+  static const Color infoCardBg = Color(0xFFD9D7B6);
+  static const Color divider = Color(0xFFC9C7A0);
 
   // dipertahankan supaya kode lama yang masih pakai nama ini tidak perlu diganti semua
   static const Color danger = Color(0xFFDC2626);
@@ -29,7 +33,10 @@ class DS {
   static const Color pink = Color(0xFFE11D48);
   static const Color pinkMuda = Color(0xFFFFF1F2);
 
-  static TextStyle get font => GoogleFonts.ptSerif();
+  static TextStyle get font => GoogleFonts.inter();
+  // Khusus teks hero di halaman cover (WelcomePage) — dipertahankan pakai serif
+  // supaya nuansa "vintage" foto tetap dapat, sisanya app pakai Inter.
+  static TextStyle get fontCover => GoogleFonts.ptSerif();
 }
 
 // ---------- TIPOGRAFI ----------
@@ -49,23 +56,30 @@ class DsChip extends StatelessWidget {
   final String label;
   final bool aktif;
   final VoidCallback onTap;
-  const DsChip({super.key, required this.label, required this.aktif, required this.onTap});
+  // Dipakai untuk opsi yang sementara tidak bisa dipilih (mis. kuota penuh) —
+  // tetap terlihat tapi diredupkan & tidak bisa ditekan.
+  final bool enabled;
+  const DsChip({super.key, required this.label, required this.aktif, required this.onTap, this.enabled = true});
 
   @override
   Widget build(BuildContext context) => GestureDetector(
-        onTap: onTap,
+        onTap: enabled ? onTap : null,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
           decoration: BoxDecoration(
-            color: aktif ? DS.active : DS.chipInactiveBg,
+            color: !enabled
+                ? DS.chipInactiveBg.withValues(alpha: 0.5)
+                : (aktif ? DS.active : DS.chipInactiveBg),
             borderRadius: BorderRadius.circular(999),
           ),
           child: Text(label,
               style: DS.font.copyWith(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: aktif ? DS.onActive : DS.primaryText)),
+                  color: !enabled
+                      ? DS.secondaryText.withValues(alpha: 0.6)
+                      : (aktif ? DS.onActive : DS.primaryText))),
         ),
       );
 }
@@ -399,4 +413,220 @@ class _DsGaugePainter extends CustomPainter {
       oldDelegate.percent != percent ||
       oldDelegate.filledColor != filledColor ||
       oldDelegate.emptyColor != emptyColor;
+}
+
+// ---------- PEMILIH JADWAL (7 hari x 4 waktu) ----------
+// Dipakai bersama di halaman Profil, filter Rekomendasi, dan form Ajukan Proyek —
+// supaya vocabulary ketersediaan waktu selalu sinkron di semua modul.
+const List<String> dsHariOpsi = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
+const List<String> dsWaktuOpsi = ['Pagi', 'Siang', 'Sore', 'Malam'];
+
+// 28 kombinasi "{Hari} {waktu}", format sama seperti data lama (mis. "Senin malam")
+// supaya tidak perlu migrasi data yang sudah tersimpan.
+final List<String> dsJadwalOpsiLengkap = [
+  for (final h in dsHariOpsi) for (final w in dsWaktuOpsi) '$h ${w.toLowerCase()}',
+];
+
+// Grid kompak 7x4 (bukan Wrap 28 chip) supaya pemilihan tidak terlihat menumpuk.
+// Baris = hari, kolom = waktu; sel ditekan untuk toggle satu slot.
+class DsJadwalGrid extends StatelessWidget {
+  final Set<String> value;
+  final ValueChanged<String> onToggle;
+  const DsJadwalGrid({super.key, required this.value, required this.onToggle});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Row(children: [
+          const SizedBox(width: 64),
+          ...dsWaktuOpsi.map((w) => Expanded(
+                child: Center(
+                  child: Text(w,
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: DS.secondaryText)),
+                ),
+              )),
+        ]),
+        const SizedBox(height: 6),
+        for (final h in dsHariOpsi)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Row(children: [
+              SizedBox(
+                width: 64,
+                child: Text(h,
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: DS.primaryText)),
+              ),
+              ...dsWaktuOpsi.map((w) {
+                final slot = '$h ${w.toLowerCase()}';
+                final aktif = value.contains(slot);
+                return Expanded(
+                  child: Center(
+                    child: GestureDetector(
+                      onTap: () => onToggle(slot),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 120),
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          color: aktif ? DS.active : DS.chipInactiveBg,
+                          borderRadius: BorderRadius.circular(9),
+                        ),
+                        alignment: Alignment.center,
+                        child: aktif ? const Icon(Icons.check, size: 16, color: Colors.white) : null,
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            ]),
+          ),
+      ],
+    );
+  }
+}
+
+// ---------- IKON BANTUAN ATRIBUT PROFIL (tanda tanya kecil) ----------
+// Dipakai lintas modul supaya penjelasan tiap atribut profil konsisten dan
+// tidak ditulis ulang di tiap file — cukup tambah entri baru di sini.
+class DsAtributInfo {
+  final String judul;
+  final String isi;
+  const DsAtributInfo(this.judul, this.isi);
+}
+
+const Map<String, DsAtributInfo> dsAtribut = {
+  'nama': DsAtributInfo('Nama',
+      'Nama lengkapmu, ditampilkan ke pengguna lain saat mereka melihat profil, kartu rekomendasi, atau daftar anggota tim.'),
+  'kampus': DsAtributInfo('Asal Kampus',
+      'Institusi tempat kamu kuliah. Membantu calon partner atau tim mengenali latar belakangmu, dan bisa jadi kesamaan yang mempermudah kerja sama.'),
+  'jurusan': DsAtributInfo('Jurusan',
+      'Bidang studi yang kamu tekuni, jadi gambaran singkat keahlian akademismu bagi orang lain.'),
+  'angkatan': DsAtributInfo('Angkatan',
+      'Tahun kamu mulai kuliah, membantu memperkirakan tingkat pengalaman dan senioritasmu.'),
+  'bio': DsAtributInfo('Bio',
+      'Deskripsi singkat tentang dirimu, supaya orang lain lebih kenal kamu sebelum terhubung atau mengajakmu bergabung.'),
+  'kontak': DsAtributInfo('Kontak Utama',
+      'Cara orang lain menghubungimu. Baru terlihat setelah kalian saling terhubung atau diterima dalam suatu proyek/tim, tidak ditampilkan ke sembarang orang.'),
+  'minat': DsAtributInfo('Minat',
+      'Bidang yang kamu sukai atau ingin dalami, dipakai untuk mencocokkanmu dengan partner, proyek, atau tim yang minatnya sejalan denganmu.'),
+  'skill': DsAtributInfo('Skill',
+      'Kemampuan yang sudah kamu kuasai, dipakai untuk mencocokkanmu dengan proyek atau tim yang membutuhkan keahlian tersebut.'),
+  'pengalaman': DsAtributInfo('Pengalaman',
+      'Tingkat jam terbangmu dalam mengerjakan proyek atau organisasi, dipakai supaya kamu dicocokkan dengan proyek atau tim yang levelnya sesuai denganmu.'),
+  'gayaKerja': DsAtributInfo('Gaya Kerja',
+      'Cara kamu suka bekerja, terstruktur dengan rencana yang jelas atau fleksibel mengikuti keadaan. Dipakai supaya kamu dicocokkan dengan partner, proyek, atau tim yang gaya kerjanya cocok denganmu.'),
+  'preferensiPeran': DsAtributInfo('Preferensi Peran',
+      'Peran yang biasanya kamu ambil saat kerja tim, memimpin, mengeksekusi, atau mendukung. Dipakai supaya kombinasi peran dalam tim atau proyek lebih seimbang.'),
+  'gayaKerjaPeran': DsAtributInfo('Gaya Kerja & Preferensi Peran',
+      'Cara kerja (terstruktur/fleksibel) dan peran yang biasa diambil orang ini saat kerja tim (memimpin, mengeksekusi, atau mendukung). Dipakai untuk melihat seberapa cocok caranya bekerja dengan proyek atau timmu.'),
+  'ketersediaanWaktu': DsAtributInfo('Ketersediaan Waktu',
+      'Hari dan waktu kamu biasanya bisa berkontribusi, dipakai supaya kamu dicocokkan dengan partner, proyek, atau tim yang jadwalnya nyambung dengan jadwalmu.'),
+  'proyekSkill': DsAtributInfo('Skill Dibutuhkan',
+      'Kemampuan yang dicari pembuat proyek dari calon anggotanya. Semakin banyak skillmu yang cocok, semakin tinggi kecocokanmu dengan proyek ini.'),
+  'proyekMinat': DsAtributInfo('Minat / Bidang',
+      'Bidang yang berkaitan dengan proyek ini. Dipakai untuk mencari calon anggota yang minatnya sejalan dengan topik proyek.'),
+  'proyekGayaKerja': DsAtributInfo('Gaya Kerja Kegiatan',
+      'Cara kerja yang paling cocok untuk proyek ini, terstruktur dengan rencana jelas atau fleksibel mengikuti keadaan.'),
+  'proyekPengalaman': DsAtributInfo('Pengalaman Disarankan',
+      'Tingkat pengalaman yang disarankan pembuat proyek untuk calon anggota, supaya beban kerja proyek sesuai dengan jam terbang pendaftarnya.'),
+  'proyekJadwal': DsAtributInfo('Jadwal Kegiatan',
+      'Hari dan waktu kegiatan proyek ini biasanya berlangsung. Bukan penentu skor kecocokan, hanya dipakai sebagai syarat lolos supaya jadwalmu tidak bentrok.'),
+};
+
+void dsJelaskanAtribut(BuildContext context, String key) {
+  final info = dsAtribut[key];
+  if (info == null) return;
+  showDialog(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: Text(info.judul, style: const TextStyle(fontWeight: FontWeight.bold, color: DS.primaryText)),
+      content: Text(info.isi, style: const TextStyle(color: DS.primaryText, height: 1.5)),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Mengerti', style: TextStyle(fontWeight: FontWeight.bold))),
+      ],
+    ),
+  );
+}
+
+Widget dsBantuanIkon(BuildContext context, String key, {double size = 16}) => InkWell(
+      onTap: () => dsJelaskanAtribut(context, key),
+      customBorder: const CircleBorder(),
+      child: Padding(
+        padding: const EdgeInsets.all(4),
+        child: Icon(Icons.help_outline, size: size, color: DS.secondaryText),
+      ),
+    );
+
+// ---------- DAFTAR CHIP YANG BISA DIPERSINGKAT (2 baris + lihat selengkapnya) ----------
+// Dipakai untuk chip ketersediaan waktu/jadwal yang bisa sampai 28 item —
+// disembunyikan sebagian setelah 2 baris supaya tidak terlihat menumpuk,
+// dengan tombol untuk membuka/menutup sisanya.
+class DsExpandableChips extends StatefulWidget {
+  final List<String> items;
+  final int maxLines;
+  const DsExpandableChips({super.key, required this.items, this.maxLines = 2});
+
+  @override
+  State<DsExpandableChips> createState() => _DsExpandableChipsState();
+}
+
+class _DsExpandableChipsState extends State<DsExpandableChips> {
+  bool _terbuka = false;
+
+  static const _spacing = 8.0;
+  static const _hPad = 14.0, _vPad = 9.0;
+  static const _style = TextStyle(color: DS.primaryText, fontSize: 13, fontWeight: FontWeight.w500);
+
+  Widget _chip(String s) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: _hPad, vertical: _vPad),
+        decoration: BoxDecoration(color: DS.chipInactiveBg, borderRadius: BorderRadius.circular(999)),
+        child: Text(s, style: _style),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.items.isEmpty) return const Text('Belum diisi', style: TextStyle(color: DS.secondaryText));
+    return LayoutBuilder(builder: (context, constraints) {
+      final maxWidth = constraints.maxWidth;
+      final painter = TextPainter(textDirection: TextDirection.ltr);
+      double lineWidth = 0;
+      int line = 1;
+      int cutoff = widget.items.length;
+      var overflow = false;
+      for (var i = 0; i < widget.items.length; i++) {
+        painter.text = TextSpan(text: widget.items[i], style: _style);
+        painter.layout();
+        final chipWidth = painter.width + _hPad * 2;
+        final addWidth = lineWidth == 0 ? chipWidth : lineWidth + _spacing + chipWidth;
+        if (addWidth > maxWidth && lineWidth > 0) {
+          line++;
+          if (line > widget.maxLines) {
+            cutoff = i;
+            overflow = true;
+            break;
+          }
+          lineWidth = chipWidth;
+        } else {
+          lineWidth = addWidth;
+        }
+      }
+      final tampil = (_terbuka || !overflow) ? widget.items : widget.items.sublist(0, cutoff);
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(spacing: _spacing, runSpacing: _spacing, children: tampil.map(_chip).toList()),
+          if (overflow) ...[
+            const SizedBox(height: 8),
+            InkWell(
+              onTap: () => setState(() => _terbuka = !_terbuka),
+              child: Text(_terbuka ? 'Sembunyikan' : 'Lihat selengkapnya',
+                  style: const TextStyle(color: DS.active, fontWeight: FontWeight.bold, fontSize: 12)),
+            ),
+          ],
+        ],
+      );
+    });
+  }
 }

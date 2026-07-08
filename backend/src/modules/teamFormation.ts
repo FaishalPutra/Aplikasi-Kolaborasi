@@ -605,6 +605,46 @@ router.patch('/lobi/:id', wajibLogin, async (req: AuthedRequest, res) => {
   return res.json({ id: updated.id, judul: updated.judul, deskripsi: updated.deskripsi, kapasitas: updated.kapasitas });
 });
 
+// Hapus lobi/tim — hanya pembuat tim, selama tim masih OPEN, dan tidak ada anggota lain
+// (selain pembuat sendiri) atau pengajuan yang masih menunggu keputusan. Dibuat ketat supaya
+// tidak ada anggota/pendaftar yang "hilang tiba-tiba" dari tim yang sudah mereka ikuti/lamar.
+router.delete('/lobi/:id', wajibLogin, async (req: AuthedRequest, res) => {
+  const lobi = await prisma.studentLobby.findUnique({ where: { id: req.params.id } });
+  if (!lobi) return res.status(404).json({ error: 'Lobi tidak ditemukan' });
+  if (lobi.koordinatorId !== req.mahasiswaId) {
+    return res.status(403).json({ error: 'Hanya pembuat tim yang dapat menghapus tim' });
+  }
+  if (lobi.status !== 'OPEN') {
+    return res.status(409).json({ error: 'Tim sudah dalam proses/selesai finalisasi, tim tidak bisa dihapus' });
+  }
+
+  const anggotaLain = await prisma.pendaftaranAnggota.count({
+    where: { lobiId: lobi.id, status: 'ACCEPTED', mahasiswaId: { not: lobi.koordinatorId } },
+  });
+  if (anggotaLain > 0) {
+    return res.status(409).json({
+      error: `Masih ada ${anggotaLain} anggota lain di tim ini. Keluarkan semua anggota terlebih dahulu sebelum menghapus tim.`,
+    });
+  }
+  const pengajuanMenunggu = await prisma.pendaftaranAnggota.count({ where: { lobiId: lobi.id, status: 'PENDING' } });
+  if (pengajuanMenunggu > 0) {
+    return res.status(409).json({
+      error: `Masih ada ${pengajuanMenunggu} pengajuan yang menunggu keputusan. Terima atau tolak semua pengajuan terlebih dahulu sebelum menghapus tim.`,
+    });
+  }
+
+  // roles & pesan diskusi ikut terhapus otomatis (onDelete: Cascade di schema) — sisanya
+  // (pendaftaran milik pembuat sendiri, cache skor) dibersihkan manual dulu karena tidak
+  // pakai cascade, supaya constraint foreign key tidak gagal saat lobi dihapus.
+  await prisma.$transaction([
+    prisma.affinityScoreRoleTeam.deleteMany({ where: { lobiId: lobi.id } }),
+    prisma.teamFormationScore.deleteMany({ where: { lobiId: lobi.id } }),
+    prisma.pendaftaranAnggota.deleteMany({ where: { lobiId: lobi.id } }),
+    prisma.studentLobby.delete({ where: { id: lobi.id } }),
+  ]);
+  return res.json({ ok: true });
+});
+
 // Tambah peran (role) baru yang dibuka — hanya pembuat tim, selama tim masih OPEN
 router.post('/lobi/:id/roles', wajibLogin, async (req: AuthedRequest, res) => {
   const lobi = await prisma.studentLobby.findUnique({

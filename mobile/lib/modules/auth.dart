@@ -102,7 +102,7 @@ class PrimaryButton extends StatelessWidget {
           style: FilledButton.styleFrom(
             backgroundColor: _biru,
             disabledBackgroundColor: const Color(0xFFCBD5E1),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
           ),
           child: loading
               ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
@@ -150,7 +150,7 @@ class WelcomePage extends StatelessWidget {
                     child: RichText(
                       textAlign: TextAlign.left,
                       text: TextSpan(
-                        style: DS.font.copyWith(height: 1.25),
+                        style: DS.fontCover.copyWith(height: 1.25),
                         children: [
                           TextSpan(
                               text: 'Temukan ',
@@ -369,12 +369,15 @@ class _RegisterPageState extends State<RegisterPage> {
       // lanjut dengan map kosong kalau gagal memuat — EditProfilPage tetap bisa dipakai
     }
     if (!context.mounted) return;
-    await Navigator.of(context).push(MaterialPageRoute(
-      builder: (ctx) => EditProfilPage(me: me, onLewati: () => Navigator.of(ctx).pop()),
+    // Hasil push dipakai buat membedakan "step selesai" (Simpan/Lewati, pop(true))
+    // dari "user menekan tombol back" (pop tanpa nilai, default null) — supaya
+    // tombol back tidak salah dikira "lanjut ke langkah berikutnya".
+    final r1 = await Navigator.of(context).push<bool>(MaterialPageRoute(
+      builder: (ctx) => EditProfilPage(me: me, onLewati: () => Navigator.of(ctx).pop(true)),
     ));
-    if (!context.mounted) return;
-    await Navigator.of(context).push(MaterialPageRoute(
-      builder: (ctx) => TreoQuestionnairePage(onLewati: () => Navigator.of(ctx).pop()),
+    if (!context.mounted || r1 != true) return;
+    await Navigator.of(context).push<bool>(MaterialPageRoute(
+      builder: (ctx) => TreoQuestionnairePage(onLewati: () => Navigator.of(ctx).pop(true)),
     ));
   }
 
