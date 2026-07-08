@@ -117,9 +117,52 @@ class _EmptyState extends StatelessWidget {
       );
 }
 
-String _statusLabel(String s) => s == 'PENDING' ? 'Menunggu' : (s == 'ACCEPTED' ? 'Diterima' : 'Ditolak');
-Color _statusFg(String s) => s == 'PENDING' ? _amber : (s == 'ACCEPTED' ? _hijau : Colors.red.shade700);
-Color _statusBg(String s) => s == 'PENDING' ? const Color(0xFFFEF3C7) : (s == 'ACCEPTED' ? const Color(0xFFDCFCE7) : const Color(0xFFFEE2E2));
+String _statusLabel(String s) {
+  switch (s) {
+    case 'PENDING':
+      return 'Menunggu persetujuan';
+    case 'ACCEPTED':
+      return 'Diterima';
+    case 'DIKELUARKAN':
+      return 'Dikeluarkan';
+    case 'KELUAR':
+      return 'Telah keluar';
+    default:
+      return 'Ditolak';
+  }
+}
+
+Color _statusFg(String s) {
+  switch (s) {
+    case 'PENDING':
+      return _amber;
+    case 'ACCEPTED':
+      return _hijau;
+    case 'DIKELUARKAN':
+    case 'REJECTED':
+      return Colors.red.shade700;
+    case 'KELUAR':
+      return _abu;
+    default:
+      return Colors.red.shade700;
+  }
+}
+
+Color _statusBg(String s) {
+  switch (s) {
+    case 'PENDING':
+      return const Color(0xFFFEF3C7);
+    case 'ACCEPTED':
+      return const Color(0xFFDCFCE7);
+    case 'DIKELUARKAN':
+    case 'REJECTED':
+      return const Color(0xFFFEE2E2);
+    case 'KELUAR':
+      return const Color(0xFFF3F4F6);
+    default:
+      return const Color(0xFFFEE2E2);
+  }
+}
 
 String _formatTenggat(dynamic tenggat) {
   if (tenggat == null) return '';
@@ -319,38 +362,21 @@ class _LombaTabState extends State<_LombaTab> with AutomaticKeepAliveClientMixin
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return Scaffold(
-      body: Column(
-        children: [
+    return Column(
+      children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(14, 10, 14, 4),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _cariCtrl,
-                    decoration: InputDecoration(
-                      hintText: 'Cari lomba atau penyelenggara...',
-                      hintStyle: const TextStyle(color: _abu, fontSize: 13),
-                      prefixIcon: const Icon(Icons.search, color: _abu, size: 20),
-                      filled: true,
-                      fillColor: const Color(0xFFF1F5F9),
-                      contentPadding: const EdgeInsets.symmetric(vertical: 0),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                FilledButton.icon(
-                  onPressed: () async {
-                    final ok = await Navigator.push(context, MaterialPageRoute(builder: (_) => const BuatLombaPage()));
-                    if (ok == true) _muat();
-                  },
-                  icon: const Icon(Icons.add, size: 18),
-                  label: const Text('Usulkan'),
-                  style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14)),
-                ),
-              ],
+            child: TextField(
+              controller: _cariCtrl,
+              decoration: InputDecoration(
+                hintText: 'Cari lomba atau penyelenggara...',
+                hintStyle: const TextStyle(color: _abu, fontSize: 13),
+                prefixIcon: const Icon(Icons.search, color: _abu, size: 20),
+                filled: true,
+                fillColor: const Color(0xFFF1F5F9),
+                contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
+              ),
             ),
           ),
           Expanded(
@@ -364,7 +390,7 @@ class _LombaTabState extends State<_LombaTab> with AutomaticKeepAliveClientMixin
                               icon: Icons.emoji_events_outlined,
                               judul: _daftar.isEmpty ? 'Belum ada lomba' : 'Tidak ditemukan',
                               subjudul: _daftar.isEmpty
-                                  ? 'Jadilah yang pertama mengusulkan lomba untuk dibentuk timnya.'
+                                  ? 'Lomba akan ditambahkan oleh admin.'
                                   : 'Coba kata kunci lain.',
                             ),
                           ])
@@ -376,8 +402,7 @@ class _LombaTabState extends State<_LombaTab> with AutomaticKeepAliveClientMixin
                   ),
           ),
         ],
-      ),
-    );
+      );
   }
 
   Widget _kartuLomba(dynamic l) {
@@ -596,7 +621,7 @@ class _TimSayaTabState extends State<_TimSayaTab> with AutomaticKeepAliveClientM
                   ),
                   isFinal
                       ? _badgeChip('Final', _hijau, const Color(0xFFDCFCE7))
-                      : _badgeChip('Aktif', _amber, const Color(0xFFFEF3C7)),
+                      : _badgeChip('Aktif', _hijau, const Color(0xFFDCFCE7)),
                 ],
               ),
               const SizedBox(height: 4),
@@ -642,6 +667,7 @@ class _TimSayaTabState extends State<_TimSayaTab> with AutomaticKeepAliveClientM
     final dikeluarkan = t['dikeluarkan'] == true;
     final isFinal = t['status'] == 'FINAL';
     final aktif = status == 'ACCEPTED';
+    final pending = status == 'PENDING';
     final tappable = aktif;
 
     final String statusLabel;
@@ -655,6 +681,10 @@ class _TimSayaTabState extends State<_TimSayaTab> with AutomaticKeepAliveClientM
       statusLabel = 'Aktif';
       fg = _hijau;
       bg = const Color(0xFFDCFCE7);
+    } else if (pending) {
+      statusLabel = 'Menunggu persetujuan';
+      fg = _amber;
+      bg = const Color(0xFFFEF3C7);
     } else if (dikeluarkan) {
       statusLabel = 'Dikeluarkan';
       fg = Colors.red.shade700;
@@ -709,7 +739,9 @@ class _TimSayaTabState extends State<_TimSayaTab> with AutomaticKeepAliveClientM
 }
 
 // ------------------------------------------------------------------------------------------------
-// Riwayat pengajuan (semua status, non-tappable, kecuali LEFT yg sudah ada di Tim Saya)
+// Riwayat pengajuan (semua status, non-tappable). Backend memetakan status LEFT menjadi ACCEPTED,
+// jadi setiap pengajuan tetap muncul di sini walau anggotanya sudah keluar/dikeluarkan — hanya
+// ada 3 label yang tampil: Menunggu persetujuan, Diterima, Ditolak.
 // ------------------------------------------------------------------------------------------------
 
 class RiwayatPengajuanPage extends StatefulWidget {
@@ -732,7 +764,7 @@ class _RiwayatPengajuanPageState extends State<RiwayatPengajuanPage> {
     setState(() => _loading = true);
     final res = await apiGet('/team-formation/pendaftaran-saya');
     setState(() {
-      _daftar = res is List ? res.where((p) => p['status'] != 'LEFT').toList() : [];
+      _daftar = res is List ? res : [];
       _loading = false;
     });
   }
@@ -1140,24 +1172,35 @@ class _DetailLombaPageState extends State<DetailLombaPage> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
           children: [
-            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const CircleAvatar(radius: 24, backgroundColor: Color(0xFFEFF3FB), child: Icon(Icons.emoji_events, color: _biru, size: 26)),
-              const SizedBox(width: 12),
-              Expanded(
+            Card(
+              margin: const EdgeInsets.symmetric(vertical: 6),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(subjudul, style: const TextStyle(color: _abu, fontSize: 12, fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 2),
-                    Text(_lomba['judul'] ?? '', style: const TextStyle(color: _navy, fontWeight: FontWeight.w800, fontSize: 18)),
+                    Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      const CircleAvatar(radius: 24, backgroundColor: Color(0xFFEFF3FB), child: Icon(Icons.emoji_events, color: _biru, size: 26)),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(subjudul, style: const TextStyle(color: _abu, fontSize: 12, fontWeight: FontWeight.w600)),
+                            const SizedBox(height: 2),
+                            Text(_lomba['judul'] ?? '', style: const TextStyle(color: _navy, fontWeight: FontWeight.w800, fontSize: 18)),
+                          ],
+                        ),
+                      ),
+                    ]),
+                    if (kategori.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      _chipList(kategori),
+                    ],
                   ],
                 ),
               ),
-            ]),
-            if (kategori.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              _chipList(kategori),
-            ],
+            ),
             const SizedBox(height: 12),
             Text(_lomba['deskripsi'] ?? '', style: const TextStyle(color: _navy, fontSize: 14, height: 1.4)),
             const SizedBox(height: 16),
@@ -1284,6 +1327,10 @@ class _DetailLombaPageState extends State<DetailLombaPage> {
     final anggota = (l['anggota'] as List?) ?? [];
     final rolesTerbuka = ((l['rolesTerbuka'] as List?)?.cast<String>() ?? []);
     final dimensiTerbuka = ((l['dimensiTerbuka'] as List?)?.cast<String>() ?? []);
+    final statusSaya = l['statusSaya'] as String?;
+    final milikSaya = l['milikSaya'] as bool? ?? false;
+    final bisaGabung = l['bisaGabung'] as bool? ?? true;
+    final alasanTidakBisaGabung = l['alasanTidakBisaGabung'] as String?;
     const avatarColors = [Color(0xFF7C3AED), Color(0xFFEA580C), Color(0xFFDB2777), Color(0xFF0891B2), Color(0xFF16A34A)];
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -1302,11 +1349,16 @@ class _DetailLombaPageState extends State<DetailLombaPage> {
                 Expanded(
                   child: Text(l['judul'] ?? '', style: const TextStyle(color: _navy, fontWeight: FontWeight.w700, fontSize: 14)),
                 ),
-                _badgeChip(
-                  l['status'] == 'FINAL' ? 'Final' : (l['status'] == 'CLOSED' ? 'Ditutup' : 'Terbuka'),
-                  l['status'] == 'FINAL' ? _hijau : (l['status'] == 'CLOSED' ? _abu : _biru),
-                  l['status'] == 'FINAL' ? const Color(0xFFDCFCE7) : const Color(0xFFEFF3FB),
-                ),
+                if (milikSaya)
+                  _badgeChip('Buatanmu', _hijau, const Color(0xFFDCFCE7))
+                else if (statusSaya != null)
+                  _badgeChip(_statusLabel(statusSaya), _statusFg(statusSaya), _statusBg(statusSaya))
+                else
+                  _badgeChip(
+                    l['status'] == 'FINAL' ? 'Final' : (l['status'] == 'CLOSED' ? 'Ditutup' : 'Terbuka'),
+                    l['status'] == 'FINAL' ? _hijau : (l['status'] == 'CLOSED' ? _abu : _biru),
+                    l['status'] == 'FINAL' ? const Color(0xFFDCFCE7) : const Color(0xFFEFF3FB),
+                  ),
               ]),
               const SizedBox(height: 4),
               Text('${l['jumlahAnggota']}/${l['totalKuota']} anggota', style: const TextStyle(color: _abu, fontSize: 12)),
@@ -1345,6 +1397,32 @@ class _DetailLombaPageState extends State<DetailLombaPage> {
                     ),
                   ),
                 ]),
+              ],
+              if (statusSaya == null) ...[
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: bisaGabung
+                        ? () async {
+                            await Navigator.push(context, MaterialPageRoute(builder: (_) => DetailLobiPage(lobiId: l['id'])));
+                            _muat();
+                          }
+                        : null,
+                    icon: const Icon(Icons.person_add_alt_1_rounded, size: 16),
+                    label: const Text('Ajukan Bergabung'),
+                  ),
+                ),
+                if (!bisaGabung && alasanTidakBisaGabung != null) ...[
+                  const SizedBox(height: 6),
+                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Icon(Icons.info_outline_rounded, size: 13, color: _abu),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(alasanTidakBisaGabung, style: const TextStyle(color: _abu, fontSize: 11, fontWeight: FontWeight.w600)),
+                    ),
+                  ]),
+                ],
               ],
             ],
           ),
@@ -1427,19 +1505,29 @@ class _BuatLobiPageState extends State<BuatLobiPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text('Pilih peran yang dicari', style: TextStyle(fontWeight: FontWeight.w700, color: _navy, fontSize: 16)),
+                if (_kapasitas != null) ...[
+                  const SizedBox(height: 4),
+                  Text('Maksimal $_kapasitas role (mengikuti kapasitas tim)',
+                      style: const TextStyle(color: _abu, fontSize: 12)),
+                ],
                 const SizedBox(height: 12),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
                   children: _domainRole.map((r) {
                     final aktif = sementara.contains(r);
+                    final penuh = _kapasitas != null && sementara.length >= _kapasitas! && !aktif;
                     return FilterChip(
                       label: Text(r),
                       selected: aktif,
-                      onSelected: (v) => setSheet(() => v ? sementara.add(r) : sementara.remove(r)),
+                      onSelected: penuh
+                          ? null
+                          : (v) => setSheet(() => v ? sementara.add(r) : sementara.remove(r)),
                       selectedColor: const Color(0xFFEFF3FB),
                       checkmarkColor: _biru,
-                      labelStyle: TextStyle(color: aktif ? _biru : _navy, fontWeight: aktif ? FontWeight.w700 : FontWeight.w500),
+                      labelStyle: TextStyle(
+                          color: penuh ? _abu : (aktif ? _biru : _navy),
+                          fontWeight: aktif ? FontWeight.w700 : FontWeight.w500),
                     );
                   }).toList(),
                 ),
@@ -1475,10 +1563,15 @@ class _BuatLobiPageState extends State<BuatLobiPage> {
       _snack(context, 'Pilih minimal 1 peran yang dicari', error: true);
       return;
     }
+    if (_kapasitas != null && _roles.length > _kapasitas!) {
+      _snack(context, 'Jumlah role teknis tidak boleh melebihi kapasitas tim ($_kapasitas)', error: true);
+      return;
+    }
     setState(() => _saving = true);
     final res = await apiPost('/team-formation/lomba/${widget.lombaId}/lobi', {
       'judul': _judul.text.trim(),
       if (_deskripsi.text.trim().isNotEmpty) 'deskripsi': _deskripsi.text.trim(),
+      if (_kapasitas != null) 'kapasitas': _kapasitas,
       'roles': _roles
           .map((r) => {
                 'namaRole': r.namaRole,
@@ -1763,6 +1856,8 @@ class _EditTimPageState extends State<EditTimPage> {
   Map<String, dynamic>? _lobi;
   final _judulCtrl = TextEditingController();
   final _deskripsiCtrl = TextEditingController();
+  final Map<String, String> _roleOverride = {};
+  int _kapasitas = 1;
 
   @override
   void initState() {
@@ -1785,6 +1880,7 @@ class _EditTimPageState extends State<EditTimPage> {
         _lobi = data as Map<String, dynamic>;
         _judulCtrl.text = (_lobi?['judul'] ?? '').toString();
         _deskripsiCtrl.text = (_lobi?['deskripsi'] ?? '').toString();
+        _kapasitas = (_lobi?['kapasitas'] as num?)?.toInt() ?? 1;
       });
     } catch (e) {
       if (mounted) _snack(context, 'Gagal memuat data tim: $e', error: true);
@@ -1794,16 +1890,30 @@ class _EditTimPageState extends State<EditTimPage> {
   }
 
   Future<void> _simpanNamaDeskripsi() async {
+    final anggotaAktif = (_lobi?['anggota'] as List?)?.length ?? 0;
+    if (_kapasitas < anggotaAktif) {
+      _snack(context, 'Kapasitas tidak boleh kurang dari jumlah anggota aktif saat ini ($anggotaAktif)', error: true);
+      return;
+    }
     setState(() => _busy = true);
     try {
       final res = await apiPatch('/team-formation/lobi/${widget.lobiId}', {
         'judul': _judulCtrl.text.trim(),
         'deskripsi': _deskripsiCtrl.text.trim(),
+        'kapasitas': _kapasitas,
       });
       if (res is Map && res['error'] != null) {
         if (mounted) _snack(context, '${res['error']}', error: true);
         return;
       }
+      for (final entry in _roleOverride.entries) {
+        final roleRes = await apiPatch('/team-formation/lobi/${widget.lobiId}/anggota/${entry.key}', {'roleId': entry.value});
+        if (roleRes is Map && roleRes['error'] != null) {
+          if (mounted) _snack(context, '${roleRes['error']}', error: true);
+          return;
+        }
+      }
+      _roleOverride.clear();
       _berubah = true;
       if (mounted) {
         _snack(context, 'Perubahan tersimpan');
@@ -1816,21 +1926,8 @@ class _EditTimPageState extends State<EditTimPage> {
     }
   }
 
-  Future<void> _ubahRoleAnggota(String pendaftaranId, String roleId) async {
-    setState(() => _busy = true);
-    try {
-      final res = await apiPatch('/team-formation/lobi/${widget.lobiId}/anggota/$pendaftaranId', {'roleId': roleId});
-      if (res is Map && res['error'] != null) {
-        if (mounted) _snack(context, '${res['error']}', error: true);
-        return;
-      }
-      _berubah = true;
-      await _muat();
-    } catch (e) {
-      if (mounted) _snack(context, 'Gagal mengubah peran anggota: $e', error: true);
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
+  void _stageRoleAnggota(String pendaftaranId, String roleId) {
+    setState(() => _roleOverride[pendaftaranId] = roleId);
   }
 
   Future<void> _keluarkanAnggota(String pendaftaranId, String nama) async {
@@ -1966,7 +2063,7 @@ class _EditTimPageState extends State<EditTimPage> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Kelola Tim'),
+          title: const Text('Kelola Pengajuan'),
           leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => Navigator.pop(context, _berubah)),
         ),
         body: _loading || _lobi == null
@@ -2053,6 +2150,34 @@ class _EditTimPageState extends State<EditTimPage> {
             readOnly: isFinal,
             decoration: _kotakInput('Deskripsi tim'),
           ),
+          const SizedBox(height: 16),
+          _label('Kapasitas Anggota'),
+          const SizedBox(height: 8),
+          Row(children: [
+            IconButton.filledTonal(
+              onPressed: nonaktif || _kapasitas <= anggota.length
+                  ? null
+                  : () => setState(() => _kapasitas--),
+              icon: const Icon(Icons.remove),
+            ),
+            Expanded(
+              child: Center(
+                child: Text('$_kapasitas',
+                    style: const TextStyle(color: _navy, fontWeight: FontWeight.w800, fontSize: 20)),
+              ),
+            ),
+            IconButton.filledTonal(
+              onPressed: nonaktif || _kapasitas >= (l['lomba']?['maxAnggotaTim'] ?? _kapasitas)
+                  ? null
+                  : () => setState(() => _kapasitas++),
+              icon: const Icon(Icons.add),
+            ),
+          ]),
+          const SizedBox(height: 4),
+          Text(
+            'Minimal ${anggota.length} (jumlah anggota aktif saat ini), maksimal ${l['lomba']?['maxAnggotaTim'] ?? '-'} sesuai lomba.',
+            style: const TextStyle(color: _abu, fontSize: 11.5),
+          ),
         ]),
         _label('Anggota Tim'),
         const SizedBox(height: 8),
@@ -2063,6 +2188,8 @@ class _EditTimPageState extends State<EditTimPage> {
               final isKoordinator = a['nama'] == l['namaKoordinator'];
               final treoDominan = a['treoDominan'] as String?;
               final treoLabel = treoDominan != null ? _treoDimLabel[treoDominan] : null;
+              final pendaftaranId = a['pendaftaranId'] as String;
+              final effectiveRoleId = _roleOverride[pendaftaranId] ?? a['roleId'];
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Row(children: [
@@ -2083,7 +2210,8 @@ class _EditTimPageState extends State<EditTimPage> {
                         Text(a['nama'] ?? '-', style: const TextStyle(color: _navy, fontWeight: FontWeight.w700, fontSize: 14)),
                         const SizedBox(height: 6),
                         DropdownButtonFormField<String>(
-                          initialValue: roles.any((r) => r['id'] == a['roleId']) ? a['roleId'] as String : null,
+                          key: ValueKey('role_${pendaftaranId}_$effectiveRoleId'),
+                          initialValue: roles.any((r) => r['id'] == effectiveRoleId) ? effectiveRoleId as String : null,
                           isExpanded: true,
                           decoration: InputDecoration(
                             isDense: true,
@@ -2101,8 +2229,8 @@ class _EditTimPageState extends State<EditTimPage> {
                           onChanged: nonaktif
                               ? null
                               : (v) {
-                                  if (v != null && v != a['roleId']) {
-                                    _ubahRoleAnggota(a['pendaftaranId'] as String, v);
+                                  if (v != null && v != effectiveRoleId) {
+                                    _stageRoleAnggota(pendaftaranId, v);
                                   }
                                 },
                         ),
@@ -2111,8 +2239,10 @@ class _EditTimPageState extends State<EditTimPage> {
                   ),
                   const SizedBox(width: 8),
                   if (treoLabel != null)
-                    _badgeChip(treoLabel, isKoordinator ? Colors.orange.shade800 : _abu,
-                        isKoordinator ? const Color(0xFFFFEDD5) : const Color(0xFFF1F5F9)),
+                    _badgeChip(
+                        treoLabel,
+                        treoDominan == 'organizer' ? Colors.orange.shade800 : _abu,
+                        treoDominan == 'organizer' ? const Color(0xFFFFEDD5) : const Color(0xFFF1F5F9)),
                   if (!isKoordinator)
                     IconButton(
                       icon: const Icon(Icons.delete_outline, color: Colors.red),
@@ -2198,9 +2328,11 @@ class _DetailLobiPageState extends State<DetailLobiPage> {
   List _diskusi = [];
   bool _loading = true;
   bool _busy = false;
+  bool _kirimBusy = false;
   String? _selectedRoleId;
   String? _myId;
   final _pesanCtrl = TextEditingController();
+  final _scrollCtrl = ScrollController();
 
   @override
   void initState() {
@@ -2211,6 +2343,7 @@ class _DetailLobiPageState extends State<DetailLobiPage> {
   @override
   void dispose() {
     _pesanCtrl.dispose();
+    _scrollCtrl.dispose();
     super.dispose();
   }
 
@@ -2297,7 +2430,8 @@ class _DetailLobiPageState extends State<DetailLobiPage> {
       if (mounted) _snack(context, '${res['error']}', error: true);
       return;
     }
-    _muat();
+    final d = await apiGet('/team-formation/lobi/${widget.lobiId}/diskusi');
+    if (d is List && mounted) setState(() => _diskusi = d);
   }
 
   Future<void> _inisiasiFinalisasi() async {
@@ -2390,7 +2524,7 @@ class _DetailLobiPageState extends State<DetailLobiPage> {
     final totalKuota = roles.fold<int>(0, (s, r) => s + ((r['kuota'] as int?) ?? 0));
     final terisi = anggota.length;
     final penuh = totalKuota > 0 && terisi >= totalKuota;
-    final sudahPunyaStatus = milikSaya || statusSaya == 'ACCEPTED' || statusSaya == 'PENDING';
+    final sudahPunyaStatus = milikSaya || statusSaya != null;
     final bisaDaftar = status == 'OPEN' && !sudahPunyaStatus && !penuh;
     final rolesTerbuka = ((_treoTim?['rolesTerbuka'] as List?) ?? []).cast<String>();
     final dimensiTerbuka = ((_treoTim?['dimensiTerbuka'] as List?) ?? []).cast<String>();
@@ -2411,7 +2545,11 @@ class _DetailLobiPageState extends State<DetailLobiPage> {
       ),
       body: RefreshIndicator(
         onRefresh: _muat,
-        child: ListView(
+        child: Scrollbar(
+          controller: _scrollCtrl,
+          thumbVisibility: true,
+          child: ListView(
+          controller: _scrollCtrl,
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
           children: [
             Card(
@@ -2479,7 +2617,7 @@ class _DetailLobiPageState extends State<DetailLobiPage> {
             ),
 
             if (_treoTim != null) ...[
-              _sectionTitle(bisaDaftar ? 'Kondisi Tim Saat Ini · Sebelum Kamu Bergabung' : 'Kondisi Tim Saat Ini'),
+              _sectionTitle('Kondisi Tim Saat Ini'),
               Card(
                 margin: const EdgeInsets.symmetric(vertical: 6),
                 child: Padding(
@@ -2527,10 +2665,22 @@ class _DetailLobiPageState extends State<DetailLobiPage> {
 
             if (bisaDaftar) ...[
               _sectionTitle('Pilih Peran Teknis'),
+              const Padding(
+                padding: EdgeInsets.only(top: 0, bottom: 8),
+                child: Text('diurutkan dari yang paling direkomendasikan', style: TextStyle(color: _abu, fontSize: 11.5)),
+              ),
               Card(
                 margin: const EdgeInsets.symmetric(vertical: 6),
                 child: Column(
-                  children: roles.map<Widget>((r) {
+                  children: (List.of(roles)..sort((r1, r2) {
+                    num skor(dynamic r) {
+                      for (final a in affinityPerRole) {
+                        if (a['roleId'] == r['id']) return (a['skorPersen'] as num?) ?? 0;
+                      }
+                      return 0;
+                    }
+                    return skor(r2).compareTo(skor(r1));
+                  })).map<Widget>((r) {
                     dynamic aff;
                     for (final a in affinityPerRole) {
                       if (a['roleId'] == r['id']) {
@@ -2581,7 +2731,7 @@ class _DetailLobiPageState extends State<DetailLobiPage> {
                                     ]),
                                     if (cocok) ...[
                                       const SizedBox(height: 6),
-                                      _badgeChip('✨ Sesuai profilmu', _biru, const Color(0xFFDBEAFE)),
+                                      _badgeChip('✨ Sesuai profilmu', _hijau, const Color(0xFFDCFCE7)),
                                     ],
                                   ],
                                 ),
@@ -2635,6 +2785,7 @@ class _DetailLobiPageState extends State<DetailLobiPage> {
             ],
 
           ],
+          ),
         ),
       ),
       bottomNavigationBar: bisaDaftar
@@ -2722,19 +2873,32 @@ class _DetailLobiPageState extends State<DetailLobiPage> {
                         Expanded(
                           child: TextField(
                             controller: _pesanCtrl,
+                            enabled: !_kirimBusy,
                             decoration: _kotakInput('Tulis pesan...', isDense: true),
-                            onSubmitted: (_) async {
-                              await _kirimPesan();
-                              setModalState(() {});
-                            },
+                            onSubmitted: _kirimBusy
+                                ? null
+                                : (_) async {
+                                    setModalState(() => _kirimBusy = true);
+                                    await _kirimPesan();
+                                    setModalState(() => _kirimBusy = false);
+                                  },
                           ),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.send, color: _biru),
-                          onPressed: () async {
-                            await _kirimPesan();
-                            setModalState(() {});
-                          },
+                          icon: _kirimBusy
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: _biru),
+                                )
+                              : const Icon(Icons.send, color: _biru),
+                          onPressed: _kirimBusy
+                              ? null
+                              : () async {
+                                  setModalState(() => _kirimBusy = true);
+                                  await _kirimPesan();
+                                  setModalState(() => _kirimBusy = false);
+                                },
                         ),
                       ]),
                     ),
@@ -2761,19 +2925,46 @@ class _DetailLobiPageState extends State<DetailLobiPage> {
               final nama = (a['nama'] ?? '-') as String;
               final kontak = a['kontak'] as String?;
               final kontakJenis = a['kontakJenis'] as String?;
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(nama, style: const TextStyle(color: _navy, fontWeight: FontWeight.w700, fontSize: 14)),
-                    Text(
-                      kontak != null && kontak.isNotEmpty
-                          ? '${kontakJenis ?? 'Kontak'}: $kontak'
-                          : 'Belum mengisi kontak',
-                      style: const TextStyle(color: _abu, fontSize: 12),
-                    ),
-                  ],
+              final mahasiswaId = a['mahasiswaId'] as String?;
+              return InkWell(
+                borderRadius: BorderRadius.circular(10),
+                onTap: mahasiswaId == null
+                    ? null
+                    : () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => TeamMemberProfilePage(
+                              lobiId: widget.lobiId,
+                              mahasiswaId: mahasiswaId,
+                            ),
+                          ),
+                        );
+                      },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(nama,
+                                style: const TextStyle(color: _navy, fontWeight: FontWeight.w700, fontSize: 14)),
+                            Text(
+                              kontak != null && kontak.isNotEmpty
+                                  ? '${kontakJenis ?? 'Kontak'}: $kontak'
+                                  : 'Belum mengisi kontak',
+                              style: const TextStyle(color: _abu, fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (mahasiswaId != null)
+                        const Icon(Icons.chevron_right, color: _abu, size: 20),
+                    ],
+                  ),
                 ),
               );
             }).toList(),
@@ -2838,7 +3029,10 @@ class _DetailLobiPageState extends State<DetailLobiPage> {
           if (milikSaya && status != 'FINAL')
             IconButton(
               icon: const Icon(Icons.edit_outlined),
-              tooltip: 'Kelola Tim',
+              iconSize: 26,
+              tooltip: 'Kelola Pengajuan',
+              constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+              padding: const EdgeInsets.all(12),
               onPressed: () async {
                 final berubah = await Navigator.push<bool>(
                   context,
@@ -2926,8 +3120,7 @@ class _DetailLobiPageState extends State<DetailLobiPage> {
                       ),
                       ...dimensiSaya.where((d) => d == 'organizer').map((d) => Padding(
                             padding: const EdgeInsets.only(left: 4),
-                            child: _badgeChip(_treoDimLabel[d] ?? d, isKoordinator ? Colors.orange.shade800 : _abu,
-                                isKoordinator ? const Color(0xFFFFEDD5) : const Color(0xFFF1F5F9)),
+                            child: _badgeChip(_treoDimLabel[d] ?? d, Colors.orange.shade800, const Color(0xFFFFEDD5)),
                           )),
                     ]),
                   );
@@ -2947,25 +3140,13 @@ class _DetailLobiPageState extends State<DetailLobiPage> {
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(color: const Color(0xFFCBD5E1)),
                           ),
-                          child: Text('+ $r', style: const TextStyle(color: _navy, fontSize: 12, fontWeight: FontWeight.w600)),
+                          child: Text(r, style: const TextStyle(color: _navy, fontSize: 12, fontWeight: FontWeight.w600)),
                         ))
                     .toList(),
               ),
             ],
 
-            _sectionTitle('FUNGSI KERJA TIM — 6 DIMENSI'),
-            Card(
-              margin: const EdgeInsets.symmetric(vertical: 6),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                child: Row(children: [
-                  const Expanded(child: Text('Keberagaman representasi', style: TextStyle(color: _navy, fontSize: 13, fontWeight: FontWeight.w600))),
-                  Text('${_treoTim?['m'] ?? dominanPerDimensi.length} anggota berbeda',
-                      style: const TextStyle(color: _biru, fontSize: 13, fontWeight: FontWeight.w700)),
-                ]),
-              ),
-            ),
-            const SizedBox(height: 10),
+            _sectionTitle('FUNGSI KERJA TIM'),
             GridView.count(
               crossAxisCount: 2,
               shrinkWrap: true,
@@ -3010,6 +3191,14 @@ class _DetailLobiPageState extends State<DetailLobiPage> {
                   ),
                 );
               }).toList(),
+            ),
+            const SizedBox(height: 4),
+            Align(
+              alignment: Alignment.bottomRight,
+              child: Text(
+                'Direpresentasikan oleh ${_treoTim?['m'] ?? dominanPerDimensi.length} anggota',
+                style: TextStyle(color: _navy.withOpacity(0.35), fontSize: 11),
+              ),
             ),
 
             if (_treoTim != null) ...[
@@ -3334,8 +3523,8 @@ class TreoQuestionnairePage extends StatefulWidget {
 class _TreoQuestionnairePageState extends State<TreoQuestionnairePage> {
   bool _loading = true;
   bool _saving = false;
-  final Map<String, List<int>> _jawaban = {
-    for (final d in _treoDimLabel.keys) d: List<int>.filled(3, 3),
+  final Map<String, List<int?>> _jawaban = {
+    for (final d in _treoDimLabel.keys) d: List<int?>.filled(3, null),
   };
 
   static const Map<String, List<String>> _pertanyaan = {
@@ -3391,6 +3580,11 @@ class _TreoQuestionnairePageState extends State<TreoQuestionnairePage> {
   }
 
   Future<void> _simpan() async {
+    final belumLengkap = _jawaban.values.any((list) => list.any((v) => v == null));
+    if (belumLengkap) {
+      _snack(context, 'Harap isi semua pernyataan sebelum menyimpan.', error: true);
+      return;
+    }
     setState(() => _saving = true);
     final res = await apiPost('/team-formation/treo', {'jawaban': _jawaban});
     setState(() => _saving = false);
@@ -3497,6 +3691,219 @@ class _TreoQuestionnairePageState extends State<TreoQuestionnairePage> {
           ),
         ),
       ),
+    );
+  }
+}
+
+// Profil detail anggota tim (dipanggil dari kontak tim yang sudah final) — mengikuti pola
+// PartnerDetailPage pada modul people to people, tanpa bagian kecocokan/affinity.
+class TeamMemberProfilePage extends StatefulWidget {
+  final String lobiId;
+  final String mahasiswaId;
+  const TeamMemberProfilePage({super.key, required this.lobiId, required this.mahasiswaId});
+  @override
+  State<TeamMemberProfilePage> createState() => _TeamMemberProfilePageState();
+}
+
+class _TeamMemberProfilePageState extends State<TeamMemberProfilePage> {
+  Map<String, dynamic>? _p;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _muat();
+  }
+
+  Future<void> _muat() async {
+    final res = await apiGet('/team-formation/lobi/${widget.lobiId}/anggota/${widget.mahasiswaId}/profil');
+    setState(() {
+      _p = res is Map ? Map<String, dynamic>.from(res) : null;
+      _loading = false;
+    });
+  }
+
+  String _teksPengalaman(dynamic v) {
+    switch (v) {
+      case 1:
+        return 'Pemula';
+      case 2:
+        return 'Menengah';
+      case 3:
+        return 'Mahir';
+      default:
+        return '-';
+    }
+  }
+
+  Widget _baris(String label, String nilai) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(children: [
+          Expanded(child: Text(label, style: const TextStyle(color: _abu))),
+          Text(nilai, style: const TextStyle(color: _navy, fontWeight: FontWeight.w600)),
+        ]),
+      );
+
+  static const Map<String, String> _treoDimLabelAnggota = {
+    'organizer': 'Organizer',
+    'doer': 'Doer',
+    'challenger': 'Challenger',
+    'innovator': 'Innovator',
+    'teamBuilder': 'Team Builder',
+    'connector': 'Connector',
+  };
+
+  Color _warnaSkorAnggota(int persen) {
+    if (persen < 40) return Colors.red.shade600;
+    if (persen < 80) return const Color(0xFFF59E0B);
+    return const Color(0xFF16A34A);
+  }
+
+  Widget _metrikTreoAnggota(String label, double nilai) {
+    final persen = (nilai * 100).round();
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Expanded(child: Text(label, style: const TextStyle(color: _navy, fontSize: 13, fontWeight: FontWeight.w600))),
+            Text('$persen%', style: const TextStyle(color: _navy, fontSize: 13, fontWeight: FontWeight.w700)),
+          ]),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: nilai.clamp(0, 1).toDouble(),
+              backgroundColor: const Color(0xFFE7ECF5),
+              color: _warnaSkorAnggota(persen),
+              minHeight: 6,
+              borderRadius: BorderRadius.circular(999),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _kotakKontak(String? kontak, String? kontakJenis) => Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(color: const Color(0xFFDCFCE7), borderRadius: BorderRadius.circular(14)),
+        child: Row(children: [
+          const Icon(Icons.check_circle, color: _hijau),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text((kontakJenis ?? 'KONTAK').toUpperCase(),
+                  style: const TextStyle(color: _hijau, fontSize: 11, fontWeight: FontWeight.bold)),
+              Text(kontak?.isNotEmpty == true ? kontak! : '(belum diisi)',
+                  style: const TextStyle(fontWeight: FontWeight.bold, color: _navy)),
+            ]),
+          ),
+        ]),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    final p = _p;
+    if (p == null || p['error'] != null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Profil anggota')),
+        body: Center(child: Text(p?['error']?.toString() ?? 'Profil tidak tersedia')),
+      );
+    }
+    final nama = p['nama']?.toString() ?? '-';
+    final institusi = p['institusi']?.toString() ?? '';
+    final jurusan = p['jurusan']?.toString() ?? '';
+    final angkatan = p['angkatan'];
+    final jurusanAngkatan =
+        jurusan.isNotEmpty && angkatan != null ? '$jurusan · $angkatan' : (jurusan.isNotEmpty ? jurusan : '');
+    final bio = p['bio']?.toString() ?? '';
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Profil anggota', style: TextStyle(fontWeight: FontWeight.bold, color: _navy)),
+        backgroundColor: Colors.white,
+        foregroundColor: _navy,
+        elevation: 0,
+      ),
+      body: ListView(padding: const EdgeInsets.all(16), children: [
+        Card(
+          margin: EdgeInsets.zero,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(children: [
+              CircleAvatar(radius: 32, backgroundColor: _biru, child: Text(_inisial(nama), style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold))),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(nama, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _navy)),
+                  if (institusi.isNotEmpty) Text(institusi, style: const TextStyle(color: _abu)),
+                  if (jurusanAngkatan.isNotEmpty)
+                    Text(jurusanAngkatan, style: const TextStyle(color: _abu, fontSize: 12)),
+                ]),
+              ),
+            ]),
+          ),
+        ),
+        if (bio.isNotEmpty) ...[
+          const SizedBox(height: 18),
+          _sectionTitle('BIO'),
+          const SizedBox(height: 10),
+          Text(bio, style: const TextStyle(color: _navy, height: 1.4)),
+        ],
+        _sectionTitle('MINAT'),
+        const SizedBox(height: 10),
+        _chipList(((p['minatTag'] as List?) ?? []).cast<String>()),
+        const SizedBox(height: 18),
+        _sectionTitle('SKILL'),
+        const SizedBox(height: 10),
+        _chipList(((p['skill'] as List?) ?? []).cast<String>()),
+        const SizedBox(height: 16),
+        Card(
+          margin: EdgeInsets.zero,
+          child: Column(children: [
+            _baris('Pengalaman', _teksPengalaman(p['pengalaman'])),
+            const Divider(height: 1),
+            _baris('Gaya kerja', p['gayaKerja']?.toString() ?? '-'),
+            const Divider(height: 1),
+            _baris('Preferensi peran', p['preferensiPeran']?.toString() ?? '-'),
+          ]),
+        ),
+        const SizedBox(height: 18),
+        _sectionTitle('KETERSEDIAAN WAKTU'),
+        const SizedBox(height: 10),
+        _chipList(((p['ketersediaanWaktu'] as List?) ?? []).cast<String>()),
+        const SizedBox(height: 18),
+        _sectionTitle('TREO ROLE TEAM'),
+        const SizedBox(height: 10),
+        Card(
+          margin: EdgeInsets.zero,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if ((p['treo']?['diisi']) != true) ...[
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: Text('Belum mengisi kuesioner TREO', style: TextStyle(color: _abu)),
+                  ),
+                ] else
+                  ..._treoDimLabelAnggota.entries.map((e) {
+                    final nilai = (p['treo']?['norm']?[e.key] as num?)?.toDouble() ?? 0.0;
+                    return _metrikTreoAnggota(e.value, nilai);
+                  }),
+                const SizedBox(height: 4),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        _kotakKontak(p['kontak']?.toString(), p['kontakJenis']?.toString()),
+        const SizedBox(height: 8),
+      ]),
     );
   }
 }

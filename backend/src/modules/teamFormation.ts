@@ -105,7 +105,7 @@ router.get('/lomba', wajibLogin, async (req: AuthedRequest, res) => {
       kontakNarahubung: l.kontakNarahubung,
       jumlahLobi: l.lobi.filter(
         (x: { id: string; koordinatorId: string; status: string }) =>
-          x.koordinatorId !== req.mahasiswaId && x.status !== 'FINAL' && !lobiSayaTerlibatIds.has(x.id),
+          x.status !== 'FINAL' || lobiSayaTerlibatIds.has(x.id),
       ).length,
       diikuti: diikutiIds.has(l.id),
     })),
@@ -189,20 +189,25 @@ router.get('/lomba/:id', wajibLogin, async (req: AuthedRequest, res) => {
       status: { in: ['PENDING', 'ACCEPTED', 'REJECTED', 'LEFT'] },
       lobi: { lombaId: lomba.id },
     },
-    select: { lobiId: true },
+    select: { lobiId: true, status: true, dikeluarkan: true },
   });
-  const lobiDiikutiIds = new Set(pendaftaranSayaDiLomba.map((p) => p.lobiId));
+  const pendaftaranSayaMap = new Map(pendaftaranSayaDiLomba.map((p) => [p.lobiId, p]));
 
   const lobiList = await Promise.all(
     lomba.lobi
       .filter(
-        (l: (typeof lomba.lobi)[number]) =>
-          l.koordinatorId !== req.mahasiswaId && l.status !== 'FINAL' && !lobiDiikutiIds.has(l.id),
+        (l: (typeof lomba.lobi)[number]) => l.status !== 'FINAL' || pendaftaranSayaMap.has(l.id),
       )
       .map(async (l: (typeof lomba.lobi)[number]) => {
       const koordinator = await prisma.mahasiswa.findUnique({ where: { id: l.koordinatorId }, select: { nama: true } });
       const totalKuota = l.roles.reduce((s, r) => s + r.kuota, 0);
       const rolesTerbuka = Array.from(new Set(l.roles.map((r) => r.namaRole)));
+      const pSaya = pendaftaranSayaMap.get(l.id);
+      let statusSaya: string | null = null;
+      if (pSaya) {
+        if (pSaya.status === 'LEFT') statusSaya = pSaya.dikeluarkan ? 'DIKELUARKAN' : 'KELUAR';
+        else statusSaya = pSaya.status;
+      }
 
       const treoList = await prisma.treoProfil.findMany({
         where: { mahasiswaId: { in: l.pendaftaran.map((p) => p.mahasiswaId) } },
@@ -221,17 +226,42 @@ router.get('/lomba/:id', wajibLogin, async (req: AuthedRequest, res) => {
         }));
       const dimensiTerbuka = dimensiTerbukaDariAnggota(normList);
 
+      const bergabungDiLobiLain = pendaftaranSayaDiLomba.some(
+        (p) => p.lobiId !== l.id && (p.status === 'PENDING' || p.status === 'ACCEPTED'),
+      );
+
+      let bisaGabung = true;
+      let alasanTidakBisaGabung: string | null = null;
+      if (l.status !== 'OPEN') {
+        bisaGabung = false;
+        alasanTidakBisaGabung = l.status === 'FINAL' ? 'Tim sudah difinalisasi' : 'Lobi sudah ditutup';
+      } else if (statusSaya) {
+        bisaGabung = false;
+        alasanTidakBisaGabung = null; // sudah ada relasi dengan lobi ini sendiri, ditandai lewat statusSaya
+      } else if (totalKuota > 0 && l.pendaftaran.length >= totalKuota) {
+        bisaGabung = false;
+        alasanTidakBisaGabung = 'Lobi sudah penuh';
+      } else if (bergabungDiLobiLain) {
+        bisaGabung = false;
+        alasanTidakBisaGabung = 'Sudah bergabung di tim lain pada lomba ini';
+      }
+
       return {
         id: l.id,
         judul: l.judul,
         deskripsi: l.deskripsi,
         status: l.status,
         namaKoordinator: koordinator?.nama ?? '-',
+        milikSaya: l.koordinatorId === req.mahasiswaId,
         jumlahAnggota: l.pendaftaran.length,
         totalKuota,
+        kapasitas: l.kapasitas ?? lomba.maxAnggotaTim,
         anggota: l.pendaftaran.map((p) => ({ mahasiswaId: p.mahasiswaId, nama: p.mahasiswa.nama })),
         rolesTerbuka,
         dimensiTerbuka,
+        statusSaya,
+        bisaGabung,
+        alasanTidakBisaGabung,
       };
     }),
   );
@@ -263,7 +293,22 @@ router.post('/lomba/:id/lobi', wajibLogin, async (req: AuthedRequest, res) => {
   const lomba = await prisma.lomba.findUnique({ where: { id: req.params.id } });
   if (!lomba) return res.status(404).json({ error: 'Lomba tidak ditemukan' });
 
-  const { judul, deskripsi, roles } = req.body ?? {};
+  // Tidak boleh bikin lobi baru kalau masih PENDING/ACCEPTED di lobi manapun (termasuk lobi sendiri
+  // yang sudah FINAL) pada lomba ini. Setelah keluar/dikeluarkan (status jadi LEFT), boleh bikin lagi.
+  const sudahDiLombaIni = await prisma.pendaftaranAnggota.findFirst({
+    where: {
+      mahasiswaId: req.mahasiswaId!,
+      status: { in: ['PENDING', 'ACCEPTED'] },
+      lobi: { lombaId: lomba.id },
+    },
+  });
+  if (sudahDiLombaIni) {
+    return res
+      .status(409)
+      .json({ error: 'Anda sudah tergabung atau menunggu persetujuan di tim lain pada lomba ini' });
+  }
+
+  const { judul, deskripsi, roles, kapasitas } = req.body ?? {};
   if (!judul || !Array.isArray(roles) || roles.length === 0) {
     return res.status(400).json({ error: 'judul dan minimal satu role wajib' });
   }
@@ -272,12 +317,20 @@ router.post('/lomba/:id/lobi', wajibLogin, async (req: AuthedRequest, res) => {
       return res.status(400).json({ error: 'setiap role wajib namaRole dan kuota >= 1' });
     }
   }
+  const kapasitasTim = typeof kapasitas === 'number' && kapasitas >= 1 ? Math.floor(kapasitas) : lomba.maxAnggotaTim;
+  if (kapasitasTim > lomba.maxAnggotaTim) {
+    return res.status(400).json({ error: `kapasitas tim maksimal ${lomba.maxAnggotaTim} sesuai lomba` });
+  }
+  if (roles.length > kapasitasTim) {
+    return res.status(400).json({ error: 'jumlah role teknis tidak boleh melebihi kapasitas tim' });
+  }
 
   const lobi = await prisma.studentLobby.create({
     data: {
       lombaId: lomba.id,
       judul,
       deskripsi: deskripsi ?? null,
+      kapasitas: kapasitasTim,
       koordinatorId: req.mahasiswaId!,
       roles: {
         create: roles.map((r: any) => ({
@@ -402,9 +455,14 @@ router.get('/lobi/:id', wajibLogin, async (req: AuthedRequest, res) => {
     },
     namaKoordinator: koordinator?.nama ?? '-',
     milikSaya,
+    kapasitas: lobi.kapasitas ?? lobi.lomba.maxAnggotaTim,
     roles: lobi.roles.map((r) => ({ id: r.id, namaRole: r.namaRole, pengalamanReq: r.pengalamanReq, kuota: r.kuota })),
     anggota: anggotaDiterima,
-    statusSaya: pendaftaranSaya?.status ?? null,
+    statusSaya:
+      pendaftaranSaya?.status === 'LEFT'
+        ? (pendaftaranSaya.dikeluarkan ? 'DIKELUARKAN' : 'KELUAR')
+        : pendaftaranSaya?.status ?? null,
+    dikeluarkanSaya: pendaftaranSaya?.dikeluarkan ?? false,
     pendaftaranIdSaya: pendaftaranSaya?.id ?? null,
     roleSaya: pendaftaranSaya?.role.namaRole ?? null,
     pendingCount,
@@ -429,9 +487,78 @@ router.get('/lobi/:id', wajibLogin, async (req: AuthedRequest, res) => {
   });
 });
 
+// Profil detail anggota tim (dipanggil saat kontak sudah terbuka pasca finalisasi) — tanpa data kecocokan/affinity
+router.get('/lobi/:id/anggota/:mahasiswaId/profil', wajibLogin, async (req: AuthedRequest, res) => {
+  const lobi = await prisma.studentLobby.findUnique({
+    where: { id: req.params.id },
+    include: { pendaftaran: true },
+  });
+  if (!lobi) return res.status(404).json({ error: 'Lobi tidak ditemukan' });
+
+  const milikSaya = lobi.koordinatorId === req.mahasiswaId;
+  const pendaftaranSaya = lobi.pendaftaran.find((p) => p.mahasiswaId === req.mahasiswaId);
+  const bolehLihat = lobi.status === 'FINAL' && (milikSaya || pendaftaranSaya?.status === 'ACCEPTED');
+  if (!bolehLihat) {
+    return res.status(403).json({ error: 'Kontak anggota belum terbuka untuk tim ini' });
+  }
+
+  const target = lobi.pendaftaran.find(
+    (p) => p.mahasiswaId === req.params.mahasiswaId && p.status === 'ACCEPTED',
+  );
+  if (!target) return res.status(404).json({ error: 'Anggota tidak ditemukan di tim ini' });
+
+  const mhs = await prisma.mahasiswa.findUnique({
+    where: { id: req.params.mahasiswaId },
+    select: {
+      id: true,
+      nama: true,
+      institusi: true,
+      jurusan: true,
+      angkatan: true,
+      bio: true,
+      kontak: true,
+      kontakJenis: true,
+      profil: true,
+    },
+  });
+  if (!mhs) return res.status(404).json({ error: 'Mahasiswa tidak ditemukan' });
+
+  const treo = await prisma.treoProfil.findUnique({ where: { mahasiswaId: req.params.mahasiswaId } });
+
+  return res.json({
+    id: mhs.id,
+    nama: mhs.nama,
+    institusi: mhs.institusi,
+    jurusan: mhs.jurusan,
+    angkatan: mhs.angkatan,
+    bio: mhs.bio,
+    kontak: mhs.kontak,
+    kontakJenis: mhs.kontakJenis,
+    minatTag: mhs.profil?.minatTag ?? [],
+    skill: mhs.profil?.skill ?? [],
+    pengalaman: mhs.profil?.pengalaman ?? null,
+    gayaKerja: mhs.profil?.gayaKerja ?? null,
+    preferensiPeran: mhs.profil?.preferensiPeran ?? null,
+    ketersediaanWaktu: mhs.profil?.ketersediaanWaktu ?? [],
+    treo: {
+      diisi: treo?.diisi ?? false,
+      norm: treo
+        ? {
+            organizer: treo.organizerNorm,
+            doer: treo.doerNorm,
+            challenger: treo.challengerNorm,
+            innovator: treo.innovatorNorm,
+            teamBuilder: treo.teamBuilderNorm,
+            connector: treo.connectorNorm,
+          }
+        : null,
+    },
+  });
+});
+
 // Ubah nama tim & deskripsi — hanya pembuat tim, selama tim masih OPEN
 router.patch('/lobi/:id', wajibLogin, async (req: AuthedRequest, res) => {
-  const lobi = await prisma.studentLobby.findUnique({ where: { id: req.params.id } });
+  const lobi = await prisma.studentLobby.findUnique({ where: { id: req.params.id }, include: { lomba: true, roles: true } });
   if (!lobi) return res.status(404).json({ error: 'Lobi tidak ditemukan' });
   if (lobi.koordinatorId !== req.mahasiswaId) {
     return res.status(403).json({ error: 'Hanya pembuat tim yang dapat mengubah tim' });
@@ -440,9 +567,31 @@ router.patch('/lobi/:id', wajibLogin, async (req: AuthedRequest, res) => {
     return res.status(409).json({ error: 'Tim sudah dalam proses/selesai finalisasi, tim tidak bisa diubah' });
   }
 
-  const { judul, deskripsi } = req.body ?? {};
+  const { judul, deskripsi, kapasitas } = req.body ?? {};
   if (judul !== undefined && !judul.toString().trim()) {
     return res.status(400).json({ error: 'Nama tim tidak boleh kosong' });
+  }
+
+  let kapasitasBaru: number | undefined;
+  if (kapasitas !== undefined) {
+    if (typeof kapasitas !== 'number' || !Number.isFinite(kapasitas) || kapasitas < 1) {
+      return res.status(400).json({ error: 'Kapasitas tim tidak valid' });
+    }
+    kapasitasBaru = Math.floor(kapasitas);
+    if (kapasitasBaru > lobi.lomba.maxAnggotaTim) {
+      return res.status(400).json({ error: `Kapasitas tim maksimal ${lobi.lomba.maxAnggotaTim} sesuai lomba` });
+    }
+    const jumlahAnggotaAktif = await prisma.pendaftaranAnggota.count({
+      where: { lobiId: lobi.id, status: 'ACCEPTED' },
+    });
+    if (kapasitasBaru < jumlahAnggotaAktif) {
+      return res.status(400).json({
+        error: `Kapasitas tidak boleh kurang dari jumlah anggota aktif saat ini (${jumlahAnggotaAktif})`,
+      });
+    }
+    if (kapasitasBaru < lobi.roles.length) {
+      return res.status(400).json({ error: 'Kapasitas tidak boleh kurang dari jumlah peran teknis yang dibuka' });
+    }
   }
 
   const updated = await prisma.studentLobby.update({
@@ -450,14 +599,18 @@ router.patch('/lobi/:id', wajibLogin, async (req: AuthedRequest, res) => {
     data: {
       ...(judul !== undefined ? { judul: judul.toString().trim() } : {}),
       ...(deskripsi !== undefined ? { deskripsi: deskripsi?.toString().trim() || null } : {}),
+      ...(kapasitasBaru !== undefined ? { kapasitas: kapasitasBaru } : {}),
     },
   });
-  return res.json({ id: updated.id, judul: updated.judul, deskripsi: updated.deskripsi });
+  return res.json({ id: updated.id, judul: updated.judul, deskripsi: updated.deskripsi, kapasitas: updated.kapasitas });
 });
 
 // Tambah peran (role) baru yang dibuka — hanya pembuat tim, selama tim masih OPEN
 router.post('/lobi/:id/roles', wajibLogin, async (req: AuthedRequest, res) => {
-  const lobi = await prisma.studentLobby.findUnique({ where: { id: req.params.id }, include: { roles: true } });
+  const lobi = await prisma.studentLobby.findUnique({
+    where: { id: req.params.id },
+    include: { roles: true, lomba: true },
+  });
   if (!lobi) return res.status(404).json({ error: 'Lobi tidak ditemukan' });
   if (lobi.koordinatorId !== req.mahasiswaId) {
     return res.status(403).json({ error: 'Hanya pembuat tim yang dapat mengubah peran' });
@@ -469,6 +622,10 @@ router.post('/lobi/:id/roles', wajibLogin, async (req: AuthedRequest, res) => {
   const { namaRole, pengalamanReq, kuota } = req.body ?? {};
   if (!namaRole || !namaRole.toString().trim()) {
     return res.status(400).json({ error: 'namaRole wajib' });
+  }
+  const kapasitasTim = lobi.kapasitas ?? lobi.lomba.maxAnggotaTim;
+  if (lobi.roles.length + 1 > kapasitasTim) {
+    return res.status(400).json({ error: 'jumlah role teknis tidak boleh melebihi kapasitas tim' });
   }
   const kuotaFinal = typeof kuota === 'number' && kuota >= 1 ? kuota : 1;
   const sudahTerbuka = lobi.roles.some(
@@ -605,7 +762,8 @@ router.post('/lobi/:id/daftar', wajibLogin, async (req: AuthedRequest, res) => {
   }
 
   const jumlahAnggota = await prisma.pendaftaranAnggota.count({ where: { lobiId: lobi.id, status: 'ACCEPTED' } });
-  if (jumlahAnggota >= lobi.lomba.maxAnggotaTim) {
+  const kapasitasTim = lobi.kapasitas ?? lobi.lomba.maxAnggotaTim;
+  if (jumlahAnggota >= kapasitasTim) {
     return res.status(409).json({ error: 'Lobi sudah penuh' });
   }
 
@@ -613,6 +771,18 @@ router.post('/lobi/:id/daftar', wajibLogin, async (req: AuthedRequest, res) => {
     where: { mahasiswaId_lobiId: { mahasiswaId: req.mahasiswaId!, lobiId: req.params.id } },
   });
   if (duplikat) return res.status(409).json({ error: 'Sudah pernah mendaftar ke lobi ini' });
+
+  const sudahDiLombaLain = await prisma.pendaftaranAnggota.findFirst({
+    where: {
+      mahasiswaId: req.mahasiswaId!,
+      status: { in: ['PENDING', 'ACCEPTED'] },
+      lobi: { lombaId: lobi.lombaId },
+      NOT: { lobiId: req.params.id },
+    },
+  });
+  if (sudahDiLombaLain) {
+    return res.status(409).json({ error: 'Anda sudah bergabung di tim lain pada lomba ini' });
+  }
 
   const pendaftaran = await prisma.pendaftaranAnggota.create({
     data: { mahasiswaId: req.mahasiswaId!, lobiId: req.params.id, roleId, status: 'PENDING' },
@@ -666,7 +836,9 @@ router.delete('/pendaftaran/:id', wajibLogin, async (req: AuthedRequest, res) =>
   return res.json({ ok: true });
 });
 
-// Tab "Tim Saya" — lobi yang saya koordinatori atau saya anggota (diterima/pernah keluar) di dalamnya
+// Tab "Tim Saya" — lobi yang saya koordinatori, atau lobi tempat saya menunggu persetujuan,
+// sudah diterima, atau pernah keluar/dikeluarkan sebagai anggota. REJECTED sengaja tidak diikutkan
+// karena begitu ditolak, tim tersebut harus hilang dari "Tim Saya".
 router.get('/saya', wajibLogin, async (req: AuthedRequest, res) => {
   const [dikoordinatori, sebagaiAnggota] = await Promise.all([
     prisma.studentLobby.findMany({
@@ -675,7 +847,7 @@ router.get('/saya', wajibLogin, async (req: AuthedRequest, res) => {
       orderBy: { createdAt: 'desc' },
     }),
     prisma.pendaftaranAnggota.findMany({
-      where: { mahasiswaId: req.mahasiswaId!, status: { in: ['ACCEPTED', 'LEFT'] } },
+      where: { mahasiswaId: req.mahasiswaId!, status: { in: ['PENDING', 'ACCEPTED', 'LEFT'] } },
       include: {
         role: true,
         lobi: { include: { lomba: true, roles: true, pendaftaran: { where: { status: 'ACCEPTED' } } } },
@@ -725,21 +897,25 @@ router.get('/saya', wajibLogin, async (req: AuthedRequest, res) => {
       jumlahAnggota,
       pendingCount,
       totalKuota: lobi.roles.reduce((s: number, r: any) => s + r.kuota, 0),
+      kapasitas: lobi.kapasitas ?? lobi.lomba.maxAnggotaTim,
       rolesTerbuka: lobi.roles.map((r: any) => r.namaRole),
     })
   );
   return res.json(out);
 });
 
-// Riwayat pengajuan saya — HANYA pendaftaran sungguhan (PENDING/ACCEPTED/REJECTED) ke role
-// tim orang lain. Baris keanggotaan otomatis milik pembuat lobi (koordinator) dan status LEFT
-// (keluar/dikeluarkan, riwayatnya sudah ada di tab "Tim Saya") sengaja tidak ikut ditampilkan
-// di sini, supaya label yang muncul di halaman "Riwayat Pengajuan" konsisten hanya 3: Menunggu/Diterima/Ditolak.
+// Riwayat pengajuan saya — SEMUA pendaftaran ke role tim orang lain, apapun statusnya.
+// Baris keanggotaan otomatis milik pembuat lobi (koordinator) tetap tidak ikut ditampilkan
+// di sini (koordinator bukan "pengajuan"). Saat pendaftaran berstatus LEFT (anggota keluar
+// atau dikeluarkan setelah sempat diterima), baris riwayatnya TETAP ada — tidak dihapus dari
+// daftar — dan statusnya ditampilkan sebagai ACCEPTED (Diterima), karena LEFT hanya mungkin
+// terjadi dari status ACCEPTED. Sehingga label yang muncul di halaman "Riwayat Pengajuan"
+// konsisten hanya 3: Menunggu/Diterima/Ditolak.
 router.get('/pendaftaran-saya', wajibLogin, async (req: AuthedRequest, res) => {
   const daftar = await prisma.pendaftaranAnggota.findMany({
     where: {
       mahasiswaId: req.mahasiswaId!,
-      status: { in: ['PENDING', 'ACCEPTED', 'REJECTED'] },
+      status: { in: ['PENDING', 'ACCEPTED', 'REJECTED', 'LEFT'] },
       lobi: { koordinatorId: { not: req.mahasiswaId! } },
     },
     include: { lobi: { include: { lomba: true } }, role: true },
@@ -755,7 +931,7 @@ router.get('/pendaftaran-saya', wajibLogin, async (req: AuthedRequest, res) => {
       ? p.lobi.lomba.kategoriLomba[0]
       : p.lobi.lomba.kategoriLomba,
     roleNama: p.role.namaRole,
-    status: p.status,
+    status: p.status === 'LEFT' ? 'ACCEPTED' : p.status,
     dikeluarkan: p.dikeluarkan,
     createdAt: p.createdAt,
     updatedAt: p.updatedAt,
@@ -845,7 +1021,8 @@ router.patch('/pendaftaran/:id', wajibLogin, async (req: AuthedRequest, res) => 
     const jumlahAnggota = await prisma.pendaftaranAnggota.count({
       where: { lobiId: pendaftaran.lobiId, status: 'ACCEPTED' },
     });
-    if (jumlahAnggota >= pendaftaran.lobi.lomba.maxAnggotaTim) {
+    const kapasitasTim = pendaftaran.lobi.kapasitas ?? pendaftaran.lobi.lomba.maxAnggotaTim;
+    if (jumlahAnggota >= kapasitasTim) {
       return res.status(409).json({ error: 'Lobi sudah penuh' });
     }
     const profil = await ambilProfilTeknis(pendaftaran.mahasiswaId);

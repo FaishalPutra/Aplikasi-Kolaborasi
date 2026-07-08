@@ -230,6 +230,7 @@ model StudentLobby {
   lomba         Lomba      @relation(fields: [lombaId], references: [id])
   judul         String
   deskripsi     String?
+  kapasitas     Int?       // batas jumlah anggota tim (slot), independen dari jumlah role teknis; null = pakai lomba.maxAnggotaTim (data lama)
   koordinatorId String     // plain FK — pembuat lobi, murni administratif (bukan skor TREO)
   status        StatusLobi @default(OPEN)
   waktuInisiasiFinalisasi DateTime? // saat pembuat tim inisiasi finalisasi — dasar batas waktu 1 jam agar anggota menyetujui
