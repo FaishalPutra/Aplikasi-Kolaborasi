@@ -500,7 +500,12 @@ class _LombaTabState extends State<_LombaTab> with AutomaticKeepAliveClientMixin
                       if (l['hadiah'] != null) ...[
                         const Icon(Icons.emoji_events_outlined, size: 13, color: _hijau),
                         const SizedBox(width: 4),
-                        Text('${l['hadiah']}', style: const TextStyle(color: _hijau, fontSize: 12, fontWeight: FontWeight.w700)),
+                        Expanded(
+                          child: Text('${l['hadiah']}',
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                              style: const TextStyle(color: _hijau, fontSize: 12, fontWeight: FontWeight.w700)),
+                        ),
                       ],
                     ]),
                     const SizedBox(height: 8),
