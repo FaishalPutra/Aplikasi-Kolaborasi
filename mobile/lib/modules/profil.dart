@@ -573,6 +573,7 @@ class _EditProfilPageState extends State<EditProfilPage> {
         maxLines: maxLines,
         decoration: InputDecoration(
           hintText: hint,
+          hintStyle: const TextStyle(color: _abu),
           filled: true,
           fillColor: Colors.white,
           enabledBorder: OutlineInputBorder(

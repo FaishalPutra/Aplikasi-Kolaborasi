@@ -2207,6 +2207,7 @@ class _BuatProjectPageState extends State<BuatProjectPage> {
         onChanged: (_) => setState(() {}),
         decoration: InputDecoration(
           hintText: hint,
+          hintStyle: const TextStyle(color: _abu),
           filled: true,
           fillColor: Colors.white,
           enabledBorder: OutlineInputBorder(
